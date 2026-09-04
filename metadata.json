@@ -1,0 +1,6 @@
+{
+  "name": "Gate 7 Coffee Roastery Soundstage",
+  "description": "Trạm phát sóng cà phê và âm nhạc đặc trưng của Gate 7 Roastery với các khung giờ phát nhạc, vinyl player và yêu cầu bài trực tiếp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

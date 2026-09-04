@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .shadow-brutal {
+    box-shadow: 4px 4px 0px #000000;
+  }
+  .shadow-brutal-gold {
+    box-shadow: 4px 4px 0px #FEBC11;
+  }
+  .shadow-brutal-lg {
+    box-shadow: 6px 6px 0px #000000;
+  }
+  .shadow-brutal-xl {
+    box-shadow: 8px 8px 0px #000000;
+  }
+  .shadow-brutal-hover {
+    box-shadow: 2px 2px 0px #000000;
+  }
+  .shadow-vinyl-glow {
+    box-shadow: 0 0 35px rgba(254, 188, 17, 0.22);
+  }
+}
+
+@keyframes vinylSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes equalizer {
+  0% { height: 18%; }
+  100% { height: 100%; }
+}
+
+.animate-spin-vinyl {
+  animation: vinylSpin 12s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: vinylSpin 18s linear infinite;
+}
+
+.vinyl-paused {
+  animation-play-state: paused !important;
+}
+
+.animate-equalizer-1 { animation: equalizer 0.7s ease-in-out infinite alternate; }
+.animate-equalizer-2 { animation: equalizer 1.1s ease-in-out infinite alternate 0.15s; }
+.animate-equalizer-3 { animation: equalizer 0.8s ease-in-out infinite alternate 0.35s; }
+.animate-equalizer-4 { animation: equalizer 1.3s ease-in-out infinite alternate 0.2s; }
+.animate-equalizer-5 { animation: equalizer 0.9s ease-in-out infinite alternate 0.4s; }
+
+.vinyl-grooves {
+  background: radial-gradient(circle at center, 
+    #2A2A30 0%, 
+    #121214 18%, 
+    #24242A 19%, 
+    #121214 36%, 
+    #282830 37%, 
+    #161618 52%, 
+    #2B2B33 53%, 
+    #111113 70%, 
+    #282830 71%, 
+    #0A0A0C 100%
+  );
+}
+
+.vinyl-groove-overlay {
+  background: 
+    radial-gradient(circle at center, transparent 24%, rgba(0,0,0,0.2) 26%, transparent 28%, rgba(0,0,0,0.28) 46%, transparent 48%, rgba(0,0,0,0.32) 68%, transparent 70%, rgba(0,0,0,0.5) 100%),
+    conic-gradient(from 0deg, rgba(255,255,255,0.22) 0deg, transparent 40deg, rgba(0,0,0,0.45) 90deg, transparent 140deg, rgba(255,255,255,0.22) 180deg, transparent 220deg, rgba(0,0,0,0.45) 270deg, transparent 320deg, rgba(255,255,255,0.22) 360deg);
+}
+
+.sticker-rotate-1 { transform: rotate(-2.5deg); }
+.sticker-rotate-2 { transform: rotate(3deg); }
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #141416;
+}
+::-webkit-scrollbar-thumb {
+  background: #2E2E35;
+  border: 1px solid #FEBC11;
+}
+
+/* Creative Sonic Flavor Pairing Animations */
+@keyframes sonicFloat {
+  0%, 100% {
+    transform: rotate(-3deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-1.5deg) translateY(-3px);
+  }
+}
+
+@keyframes sonicRippleRing {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes sonicSteam {
+  0% {
+    opacity: 0;
+    transform: translateY(2px) scaleX(0.8);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(-5px) scaleX(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scaleX(0.9);
+  }
+}
+
+.animate-sonic-float {
+  animation: sonicFloat 2.8s ease-in-out infinite;
+}
+
+.animate-sonic-ripple {
+  animation: sonicRippleRing 2.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+.animate-sonic-steam-1 {
+  animation: sonicSteam 2s ease-out infinite;
+}
+
+.animate-sonic-steam-2 {
+  animation: sonicSteam 2.4s ease-out infinite 0.6s;
+}
+
+.animate-sonic-steam-3 {
+  animation: sonicSteam 2.1s ease-out infinite 1.1s;
+}
+
+/* Coffee Bean & Music Note Hugging Keyframes */
+@keyframes hugSway {
+  0%, 100% {
+    transform: rotate(-3deg) scale(1);
+  }
+  50% {
+    transform: rotate(3deg) scale(1.04);
+  }
+}
+
+@keyframes hugPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes heartFloatUp {
+  0% {
+    opacity: 0;
+    transform: translateY(2px) scale(0.6);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.85);
+  }
+}
+
+.animate-hug-sway {
+  animation: hugSway 3s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.animate-hug-pulse {
+  animation: hugPulse 2.4s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+.animate-heart-float {
+  animation: heartFloatUp 2s ease-out infinite;
+}
+
+
