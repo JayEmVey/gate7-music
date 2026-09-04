@@ -1,0 +1,62 @@
+{
+  "us": {
+    "morning": [
+      { "id": "37i9dQZF1DX1e2VSJFudND", "name": "Cà Phê Quán Quen" },
+      { "id": "5TF1ki4BzMFfotw57juFTY", "name": "Coffeehouse Chill" },
+      { "id": "0UwwHD89mULI8HYYH2ejJN", "name": "Chillhop Morning Boost" },
+      { "id": "37i9dQZF1E8OTC7Nmrvoil", "name": "Nhạc Không Lời Buổi Sáng Radio" },
+      { "id": "37i9dQZF1EIcyFDXQX9B1P", "name": "Bosa Nova Jazz Mix" }
+    ],
+    "afternoon": [
+      { "id": "37i9dQZF1DWT2oR9BciC32", "name": "V-Indie" },
+      { "id": "37i9dQZF1DWTwnEm1IYyoj", "name": "Soft Pop Hits" },
+      { "id": "37i9dQZF1DX5HzXEElAlcz", "name": "Lofi Lâu Fai" },
+      { "id": "37i9dQZF1DXbO6rt3GhXDY", "name": "Indie Pop" },
+      { "id": "7bb2doKx2NsGJ4NJUv190w", "name": "Cafe Jazz / Groove" }
+    ],
+    "lunch": [
+      { "id": "0EAo4yaK5HfxrsQXAqaOLz", "name": "Lofi Deep Focus" },
+      { "id": "37i9dQZF1DX5HzXEElAlcz", "name": "Lofi Lâu Fai" },
+      { "id": "37i9dQZF1DX4TnpT6vw5rE", "name": "Atmospheric Acoustic" },
+      { "id": "37i9dQZF1DWXLeA8Omikj7", "name": "Brain Food" },
+      { "id": "4ix9zZP0j6aBefvZb8ectV", "name": "Nhạc Không Lời Bất Hủ" }
+    ],
+    "evening": [
+      { "id": "37i9dQZF1DX0Bm9rVRYPcY", "name": "V-Pop Ngày Hôm Qua" },
+      { "id": "37i9dQZF1DXdipfKDeMPTE", "name": "Late Night Beats" },
+      { "id": "37i9dQZF1DXbcP8BbYEQaO", "name": "Night Pop" },
+      { "id": "4qcuUHf5IT3LrCjYQaPAXi", "name": "Nhạc Chill Buổi Tối" },
+      { "id": "37i9dQZF1DWXSyfX6gqDNp", "name": "Evening Jazz" }
+    ]
+  },
+  "vn": {
+    "morning": [
+      { "id": "37i9dQZF1DX1e2VSJFudND", "name": "Cà Phê Quán Quen" },
+      { "id": "5TF1ki4BzMFfotw57juFTY", "name": "Coffeehouse Chill" },
+      { "id": "0UwwHD89mULI8HYYH2ejJN", "name": "Chillhop Morning Boost" },
+      { "id": "37i9dQZF1E8OTC7Nmrvoil", "name": "Nhạc Không Lời Buổi Sáng Radio" },
+      { "id": "37i9dQZF1EIcyFDXQX9B1P", "name": "Bosa Nova Jazz Mix" }
+    ],
+    "afternoon": [
+      { "id": "37i9dQZF1DWT2oR9BciC32", "name": "V-Indie" },
+      { "id": "37i9dQZF1DWTwnEm1IYyoj", "name": "Soft Pop Hits" },
+      { "id": "37i9dQZF1DX5HzXEElAlcz", "name": "Lofi Lâu Fai" },
+      { "id": "37i9dQZF1DXbO6rt3GhXDY", "name": "Indie Pop" },
+      { "id": "7bb2doKx2NsGJ4NJUv190w", "name": "Cafe Jazz / Groove" }
+    ],
+    "lunch": [
+      { "id": "0EAo4yaK5HfxrsQXAqaOLz", "name": "Lofi Deep Focus" },
+      { "id": "37i9dQZF1DX5HzXEElAlcz", "name": "Lofi Lâu Fai" },
+      { "id": "37i9dQZF1DX4TnpT6vw5rE", "name": "Atmospheric Acoustic" },
+      { "id": "37i9dQZF1DWXLeA8Omikj7", "name": "Brain Food" },
+      { "id": "4ix9zZP0j6aBefvZb8ectV", "name": "Nhạc Không Lời Bất Hủ" }
+    ],
+    "evening": [
+      { "id": "37i9dQZF1DX0Bm9rVRYPcY", "name": "V-Pop Ngày Hôm Qua" },
+      { "id": "37i9dQZF1DXdipfKDeMPTE", "name": "Late Night Beats" },
+      { "id": "37i9dQZF1DXbcP8BbYEQaO", "name": "Night Pop" },
+      { "id": "4qcuUHf5IT3LrCjYQaPAXi", "name": "Nhạc Chill Buổi Tối" },
+      { "id": "37i9dQZF1DWXSyfX6gqDNp", "name": "Evening Jazz" }
+    ]
+  }
+}
