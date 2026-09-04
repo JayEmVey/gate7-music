@@ -12,7 +12,6 @@ import { INITIAL_TRACK, BLOSSOM_TRACK, INITIAL_TIME_SLOTS, INITIAL_REQUESTS, get
 import { Track, Playlist, TimeSlot, RequestTicket, SpeakerZone, Language, Theme } from './types';
 import { audioEngine } from './utils/audio';
 import {
-  getSpotifyAccessToken,
   getSpotifyUserAuthUrl,
   checkAndStoreUserTokenFromUrl,
   getSpotifyUserToken,
@@ -98,7 +97,7 @@ export default function App() {
   const [selectedPlaylistForModal, setSelectedPlaylistForModal] = useState<Playlist | null>(null);
   const [isPairingModalOpen, setIsPairingModalOpen] = useState<boolean>(false);
 
-  // 1. Check for Spotify OAuth User Token in URL hash or query (from redirect)
+  // Check for the Spotify OAuth callback in either the main window or popup.
   useEffect(() => {
     checkAndStoreUserTokenFromUrl().then((userToken) => {
       if (userToken) {
@@ -108,33 +107,21 @@ export default function App() {
     });
   }, []);
 
-  // 2. Auto-connect to Spotify with Gate 7 Coffee Credentials on load
+  // Receive a successful OAuth result from the login popup.
   useEffect(() => {
-    let isMounted = true;
-    async function initSpotify() {
-      try {
-        const token = await getSpotifyAccessToken();
-        if (isMounted) {
-          if (token) {
-            setSpotifyAuthStatus('connected');
-            console.log('✓ Gate 7 Coffee Spotify auto-authentication successful.');
-          } else {
-            setSpotifyAuthStatus('connected');
-          }
-        }
-      } catch (e) {
-        if (isMounted) {
-          setSpotifyAuthStatus('connected');
-        }
+    const onSpotifyAuthComplete = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== 'spotify-auth-complete') {
+        return;
       }
-    }
-    initSpotify();
-    return () => {
-      isMounted = false;
+      setSpotifyAuthStatus('connected');
+      console.log('✓ Spotify User Account successfully connected for live playback sync.');
     };
+
+    window.addEventListener('message', onSpotifyAuthComplete);
+    return () => window.removeEventListener('message', onSpotifyAuthComplete);
   }, []);
 
-  // 3. Live Polling for Spotify Desktop Playback
+  // Live Polling for Spotify Desktop Playback
   useEffect(() => {
     let isMounted = true;
 
@@ -178,13 +165,18 @@ export default function App() {
     };
   }, []);
 
-  // 4. Desktop Sync Handler: user clicks "Đồng bộ Desktop"
+  // Desktop Sync Handler: user clicks "Đồng bộ Desktop"
   const handleSyncDesktop = useCallback(async () => {
     const userToken = getSpotifyUserToken();
     if (!userToken) {
       // If user hasn't authorized Spotify OAuth yet, trigger popup
-      const authUrl = getSpotifyUserAuthUrl();
+      const authUrl = await getSpotifyUserAuthUrl();
       const popup = window.open(authUrl, 'spotify_login', 'width=500,height=700');
+      if (!popup) {
+        setSpotifyAuthStatus('failed');
+        console.warn('Spotify login popup was blocked by the browser.');
+        return;
+      }
       // Set to blossom immediately
       setCurrentTrack(BLOSSOM_TRACK);
       setPlaybackSec(45);

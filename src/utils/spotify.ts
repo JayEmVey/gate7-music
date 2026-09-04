@@ -1,16 +1,42 @@
 // Gate 7 Coffee Roastery - Spotify Web API Integration
-// Automated authentication with Gate 7 Client ID and Client Secret
+// User authentication uses OAuth Authorization Code with PKCE.
 
 export const SPOTIFY_CONFIG = {
   clientId: 'be83df152a954a5fbe64cd9f065cb832',
-  clientSecret: 'eabdc8fb352a4504aab3e1379d8ad6a5',
   scopes: 'user-read-currently-playing user-read-playback-state',
 };
+
+const PKCE_VERIFIER_KEY = 'spotify_pkce_verifier';
+const PKCE_STATE_KEY = 'spotify_oauth_state';
+const PKCE_REDIRECT_URI_KEY = 'spotify_oauth_redirect_uri';
+
+function getRedirectUri(): string {
+  const configuredUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI?.trim();
+  if (configuredUri) return configuredUri;
+  // Spotify rejects `localhost` aliases for OAuth callbacks. Local development
+  // must use the literal loopback IP; deployed builds use their HTTPS origin.
+  if (import.meta.env.DEV) return 'https://127.0.0.1:3000/';
+  return `${window.location.origin}/`;
+}
+
+function createRandomString(length: number): string {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function createCodeChallenge(verifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
 
 export interface SpotifyAuthStatus {
   authenticated: boolean;
   token?: string;
-  source: 'client_credentials' | 'cached' | 'error';
+  source: 'user_oauth' | 'cached' | 'error';
   error?: string;
 }
 
@@ -48,8 +74,15 @@ export const spotifyDiagnostics = {
 /**
  * Constructs Spotify User OAuth URL for live playback reading (Authorization Code)
  */
-export function getSpotifyUserAuthUrl(redirectUri?: string): string {
-  const targetRedirect = redirectUri || (typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '');
+export async function getSpotifyUserAuthUrl(redirectUri?: string): Promise<string> {
+  const targetRedirect = redirectUri || getRedirectUri();
+  const verifier = createRandomString(64);
+  const state = createRandomString(32);
+  const codeChallenge = await createCodeChallenge(verifier);
+
+  sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier);
+  sessionStorage.setItem(PKCE_STATE_KEY, state);
+  sessionStorage.setItem(PKCE_REDIRECT_URI_KEY, targetRedirect);
   
   const params = new URLSearchParams({
     client_id: SPOTIFY_CONFIG.clientId,
@@ -57,6 +90,9 @@ export function getSpotifyUserAuthUrl(redirectUri?: string): string {
     redirect_uri: targetRedirect,
     scope: SPOTIFY_CONFIG.scopes,
     show_dialog: 'true',
+    state,
+    code_challenge_method: 'S256',
+    code_challenge: codeChallenge,
   });
   
   const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
@@ -82,40 +118,33 @@ export async function checkAndStoreUserTokenFromUrl(): Promise<string | null> {
 
   const code = searchParams.get('code');
   if (!code) {
-    // Fallback: check hash for token just in case implicit grant somehow worked
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const tokenFromHash = hashParams.get('access_token');
-    if (tokenFromHash) {
-      spotifyDiagnostics.log('Found token in hash (Implicit Grant fallback)');
-      localStorage.setItem('spotify_user_token', tokenFromHash);
-      const expiresIn = hashParams.get('expires_in');
-      if (expiresIn) {
-        localStorage.setItem('spotify_user_token_expires_at', String(Date.now() + Number(expiresIn) * 1000));
-      }
-      window.history.replaceState(null, '', window.location.pathname);
-      return tokenFromHash;
-    }
-    
     spotifyDiagnostics.log('No authorization code found in URL');
+    return null;
+  }
+
+  const returnedState = searchParams.get('state');
+  const expectedState = sessionStorage.getItem(PKCE_STATE_KEY);
+  const verifier = sessionStorage.getItem(PKCE_VERIFIER_KEY);
+  const targetRedirect = sessionStorage.getItem(PKCE_REDIRECT_URI_KEY) || getRedirectUri();
+  if (!verifier || !expectedState || returnedState !== expectedState) {
+    spotifyDiagnostics.log('OAuth state or PKCE verifier validation failed');
     return null;
   }
 
   spotifyDiagnostics.log('Authorization code found, exchanging for access token...');
   
   try {
-    const targetRedirect = `${window.location.origin}${window.location.pathname}`;
-    const auth = btoa(`${SPOTIFY_CONFIG.clientId}:${SPOTIFY_CONFIG.clientSecret}`);
-    
     const response = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code: code,
         redirect_uri: targetRedirect,
+        client_id: SPOTIFY_CONFIG.clientId,
+        code_verifier: verifier,
       }).toString(),
     });
 
@@ -142,6 +171,13 @@ export async function checkAndStoreUserTokenFromUrl(): Promise<string | null> {
       
       // Clean URL without reload
       window.history.replaceState(null, '', window.location.pathname);
+      sessionStorage.removeItem(PKCE_VERIFIER_KEY);
+      sessionStorage.removeItem(PKCE_STATE_KEY);
+      sessionStorage.removeItem(PKCE_REDIRECT_URI_KEY);
+      if (window.opener) {
+        window.opener.postMessage({ type: 'spotify-auth-complete' }, window.location.origin);
+        window.close();
+      }
       return data.access_token;
     }
   } catch (error) {
@@ -224,52 +260,6 @@ export async function fetchCurrentlyPlayingTrack(): Promise<SpotifyLivePlaybackI
   } catch (err) {
     console.warn('Could not fetch Spotify currently-playing track:', err);
     return null;
-  }
-}
-
-/**
- * Automatically authenticates with Spotify using Gate 7 Coffee Client Credentials.
- * Safe for in-browser client credentials or token caching in localStorage.
- */
-export async function getSpotifyAccessToken(): Promise<string | null> {
-  try {
-    const cachedToken = localStorage.getItem('spotifyAccessToken');
-    const cachedExpiresAt = Number(localStorage.getItem('spotifyTokenExpiresAt') || 0);
-
-    // If cached token is still valid (with 60s margin), use it
-    if (cachedToken && Date.now() < cachedExpiresAt - 60000) {
-      return cachedToken;
-    }
-
-    // Authenticate via client credentials flow
-    const auth = btoa(`${SPOTIFY_CONFIG.clientId}:${SPOTIFY_CONFIG.clientSecret}`);
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials',
-    });
-
-    if (!response.ok) {
-      console.warn('Spotify auth response error:', response.status, response.statusText);
-      // If client credentials fail, check if we still have any token
-      return cachedToken || null;
-    }
-
-    const data = await response.json();
-    if (data.access_token) {
-      localStorage.setItem('spotifyAccessToken', data.access_token);
-      const expiresAt = Date.now() + (Number(data.expires_in) || 3600) * 1000;
-      localStorage.setItem('spotifyTokenExpiresAt', String(expiresAt));
-      return data.access_token;
-    }
-
-    return null;
-  } catch (error) {
-    console.warn('Spotify authentication failed:', error);
-    return localStorage.getItem('spotifyAccessToken') || null;
   }
 }
 

@@ -135,15 +135,30 @@ Start the local Vite development server:
 ```bash
 npm run dev
 ```
-The server will start on `http://localhost:3000` (bound to `0.0.0.0:3000`).
+The server starts at `https://127.0.0.1:3000/`. Your browser may ask you to
+accept Vite's locally generated development certificate on first use.
 
-### 5.4 Code Quality & Linting
+### 5.4 Spotify OAuth setup
+In the Spotify Developer Dashboard, add this exact value to the app's **Redirect
+URIs** list:
+
+```
+https://127.0.0.1:3000/
+```
+
+The scheme, host, port, path, and trailing slash must match exactly. Spotify
+does not allow `localhost` as an OAuth callback; its supported local alternative
+is the literal loopback IP above. The same value is provided in `.env.example` as
+`VITE_SPOTIFY_REDIRECT_URI`; copy it into `.env.local` if you need a different
+callback URL.
+
+### 5.5 Code Quality & Linting
 Run TypeScript checks to verify type safety and ensure no compilation errors:
 ```bash
 npm run lint
 ```
 
-### 5.5 Production Build
+### 5.6 Production Build
 Compile the application into static production assets:
 ```bash
 npm run build

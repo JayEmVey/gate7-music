@@ -1,0 +1,24 @@
+{
+  "name": "gate7-music",
+  "compatibility_date": "2025-11-21",
+  "main": "src/index.js",
+  "vars": {
+    "SPOTIFY_CLIENT_ID": "be83df152a954a5fbe64cd9f065cb832"
+  },
+  "assets": {
+    "directory": "./dist"
+  },
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+      "persist": true
+    },
+    "traces": {
+      "enabled": false,
+      "head_sampling_rate": 1,
+      "persist": true
+    }
+  }
+}
