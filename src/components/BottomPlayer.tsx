@@ -21,7 +21,7 @@ interface BottomPlayerProps {
   volume: number;
   onChangeVolume: (vol: number) => void;
   onOpenTrackDetail: () => void;
-  onOpenSpotifySync: () => void;
+  onOpenSpotify?: () => void;
   language: Language;
   theme?: 'dark' | 'light';
 }
@@ -45,7 +45,7 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
   volume,
   onChangeVolume,
   onOpenTrackDetail,
-  onOpenSpotifySync,
+  onOpenSpotify,
   language,
   theme = 'dark',
 }) => {
@@ -138,13 +138,13 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
             >
               {currentTrack.title}
             </button>
-            <span
-              onClick={onOpenSpotifySync}
-              className="text-[#1DB954] text-xs cursor-pointer"
-              title="Đang đồng bộ từ Spotify"
+            <button
+              onClick={onOpenSpotify}
+              className="text-[#1DB954] hover:text-[#1ed760] text-xs cursor-pointer p-0.5 transition-colors"
+              title={language === 'vi' ? 'Mở bài hát trên Spotify' : 'Open song in Spotify'}
             >
-              <i className="fa-brands fa-spotify"></i>
-            </span>
+              <i className="fa-brands fa-spotify text-sm"></i>
+            </button>
           </div>
           <p
             onClick={onOpenTrackDetail}
@@ -263,11 +263,12 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
       {/* RIGHT: Volume, Lossless & Speaker Sync */}
       <div className="flex items-center justify-end gap-3.5 w-1/4 min-w-[200px] relative">
         <button
-          onClick={onOpenSpotifySync}
-          className="hidden sm:inline-flex text-xs font-black bg-[#FEBC11] text-[#0D0D0E] border-2 border-black px-2.5 py-1 shadow-brutal hover:bg-yellow-400 transition-colors cursor-pointer"
-          title="Lossless Hi-Fi Audio & Soundstage Settings"
+          onClick={onOpenSpotify}
+          className="hidden sm:inline-flex items-center gap-1.5 text-xs font-black bg-[#FEBC11] text-[#0D0D0E] border-2 border-black px-2.5 py-1 shadow-brutal hover:bg-yellow-400 transition-colors cursor-pointer"
+          title={language === 'vi' ? 'Mở bài đang phát trên Spotify' : 'Open currently playing track on Spotify'}
         >
-          HI-FI 72dB
+          <i className="fa-brands fa-spotify text-sm"></i>
+          <span>SPOTIFY</span>
         </button>
 
         {/* Speaker Zone Selector */}

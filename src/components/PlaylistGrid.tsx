@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { TimeSlot, Playlist, Language } from '../types';
+import { SpotifyItemTarget } from './SpotifyChooserModal';
 
 interface PlaylistGridProps {
   timeSlots: TimeSlot[];
   activePlaylistId: string;
   onSelectPlaylist: (playlist: Playlist) => void;
   onViewAllSlot?: (slot: TimeSlot) => void;
+  onOpenSpotify?: (target: SpotifyItemTarget) => void;
   activeFilterTag: string | null;
   searchQuery: string;
   language: Language;
@@ -16,6 +18,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
   timeSlots,
   activePlaylistId,
   onSelectPlaylist,
+  onOpenSpotify,
   activeFilterTag,
   searchQuery,
   language,
@@ -54,11 +57,11 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
   return (
     <div className="space-y-10">
       {timeSlots.map((slot) => {
-        const isCurrentSlot = slot.id === 'slot-current';
+        const isCurrentSlot = Boolean(slot.isCurrentSlot);
 
         // When not filtering/searching:
-        // By default show only playlists in the same/current time frame (Image 1).
-        // If showAllTimeSlots is true, show all time frames (Image 2).
+        // By default show only playlists in the current time frame (Image 2).
+        // If showAllTimeSlots is true, show all time frames (Image 1).
         if (!showAllTimeSlots && !isCurrentSlot && !searchQuery && !activeFilterTag) {
           return null;
         }
@@ -106,7 +109,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Non-current slots only show their slot number badge (Image 2) */}
+                {/* Non-current slots show their slot number badge (e.g. SLOT #1, SLOT #3, SLOT #4) */}
                 {!isCurrentSlot && (
                   <span
                     className={`text-xs font-mono font-bold border-2 border-black px-2.5 py-0.5 shadow-brutal ${
@@ -117,7 +120,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                   </span>
                 )}
 
-                {/* Only current slot has the "View All" toggle button (Image 1) */}
+                {/* Current slot has the "View All" toggle button (Image 1 / Image 2) */}
                 {isCurrentSlot && (
                   <button
                     id="view-all-playlists-btn"
@@ -126,8 +129,8 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                   >
                     <span>
                       {language === 'vi'
-                        ? (showAllTimeSlots ? 'Thu gọn' : `Xem tất cả (${slot.playlists.length} list)`)
-                        : (showAllTimeSlots ? 'Collapse' : `View All (${slot.playlists.length} lists)`)}
+                        ? (showAllTimeSlots ? 'THU GỌN' : `XEM TẤT CẢ (${slot.playlists.length} LIST)`)
+                        : (showAllTimeSlots ? 'COLLAPSE' : `VIEW ALL (${slot.playlists.length} LISTS)`)}
                     </span>
                     <span>{showAllTimeSlots ? '←' : '→'}</span>
                   </button>
@@ -139,10 +142,11 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               {matchingPlaylists.map((playlist) => {
                 const isActive = playlist.id === activePlaylistId;
-                const isBossaHighlight = playlist.id === 'bossa-nova-jazz';
+                const isNowPlaying = playlist.isNowPlaying;
+                const isHighlighted = playlist.isHighlighted;
 
-                // Golden / Highlight card styling
-                if (isActive || playlist.isNowPlaying) {
+                // Active / Now Playing Card (Image 1 / 2)
+                if (isActive || isNowPlaying) {
                   return (
                     <div
                       key={playlist.id}
@@ -150,7 +154,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                       className={`group p-4 flex flex-col justify-between hover:-translate-y-1 transition-all relative overflow-hidden cursor-pointer ${
                         isLight
                           ? 'bg-[#FFFDF0] border-3 border-black shadow-[5px_5px_0px_#000000]'
-                          : 'bg-[#222018] border-2 border-[#FEBC11] shadow-brutal-gold'
+                          : 'bg-[#1A1A1E] border-2 border-[#FEBC11] shadow-brutal'
                       }`}
                     >
                       <div className="absolute top-0 right-0 bg-black text-[#FEBC11] text-[9px] font-black uppercase px-2 py-0.5 border-b border-l border-black">
@@ -158,27 +162,27 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                       </div>
 
                       <div>
-                        <div className="w-12 h-12 bg-[#FEBC11] border-2 border-black shadow-brutal flex items-center justify-center text-[#0D0D0E] mb-3 group-hover:rotate-6 transition-transform">
-                          <i className={`fa-solid ${playlist.icon} text-xl`}></i>
+                        <div className="w-10 h-10 bg-[#FEBC11] border-2 border-black shadow-brutal flex items-center justify-center text-[#0D0D0E] mb-3 group-hover:rotate-6 transition-transform">
+                          <i className={`fa-solid ${playlist.icon} text-base`}></i>
                         </div>
                         <h4
-                          className={`font-black text-base uppercase truncate transition-colors ${
+                          className={`font-black text-sm uppercase truncate transition-colors ${
                             isLight ? 'text-black group-hover:text-amber-800' : 'text-white group-hover:text-[#FEBC11]'
                           }`}
                         >
                           {playlist.title}
                         </h4>
-                        <p className={`text-xs font-medium mt-1 ${isLight ? 'text-gray-800' : 'text-gray-300'}`}>
+                        <p className={`text-xs font-medium mt-1 line-clamp-2 ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
                           {playlist.description}
                         </p>
                       </div>
 
                       <div
                         className={`mt-4 pt-3 flex items-center justify-between font-mono text-xs font-bold ${
-                          isLight ? 'border-t-2 border-black/15 text-black' : 'border-t border-[#FEBC11]/30'
+                          isLight ? 'border-t-2 border-black/15 text-black' : 'border-t border-[#2A2A35]'
                         }`}
                       >
-                        <span className={isLight ? 'text-black font-bold' : 'text-gray-300'}>
+                        <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>
                           {playlist.trackCount} {language === 'vi' ? 'BÀI' : 'TRACKS'}
                         </span>
                         <span className="bg-[#FEBC11] text-[#0D0D0E] px-2 py-0.5 font-sans font-black border border-black">
@@ -189,35 +193,36 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                   );
                 }
 
-                if (isBossaHighlight) {
+                // Highlighted Card (e.g. Bossa Nova Jazz Mix in Slot 1)
+                if (isHighlighted) {
                   return (
                     <div
                       key={playlist.id}
                       onClick={() => onSelectPlaylist(playlist)}
-                      className={`group p-4 transition-all cursor-pointer flex flex-col justify-between ${
+                      className={`group p-4 flex flex-col justify-between hover:-translate-y-1 transition-all cursor-pointer ${
                         isLight
-                          ? 'bg-white border-2 border-black shadow-[4px_4px_0px_#000000] hover:shadow-[6px_6px_0px_#000000] hover:-translate-y-1'
-                          : 'bg-[#201F18] border-2 border-[#FEBC11] shadow-brutal-gold hover:bg-[#25231A]'
+                          ? 'bg-white border-2 border-black shadow-[4px_4px_0px_#000000] hover:shadow-[6px_6px_0px_#000000]'
+                          : 'bg-[#1A1A1E] border-2 border-[#FEBC11] shadow-brutal'
                       }`}
                     >
                       <div>
-                        <div className="w-10 h-10 bg-[#FEBC11] text-[#0D0D0E] border-2 border-black flex items-center justify-center mb-2.5 font-bold text-base group-hover:rotate-6 transition-transform">
+                        <div className="w-10 h-10 bg-[#24242E] text-white border-2 border-black flex items-center justify-center font-bold text-base mb-2.5 group-hover:rotate-6 transition-transform">
                           <i className={`fa-solid ${playlist.icon}`}></i>
                         </div>
-                        <h4 className={`font-black text-sm uppercase truncate ${isLight ? 'text-black' : 'text-[#FEBC11]'}`}>
+                        <h4 className={`font-black text-sm uppercase truncate ${isLight ? 'text-black' : 'text-white'}`}>
                           {playlist.title}
                         </h4>
-                        <p className={`text-xs font-medium mt-1 ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
+                        <p className={`text-xs font-medium mt-1 line-clamp-2 ${isLight ? 'text-gray-700' : 'text-gray-400'}`}>
                           {playlist.description}
                         </p>
                       </div>
                       <div
-                        className={`mt-3 pt-2 flex items-center justify-between text-[11px] font-mono font-bold ${
-                          isLight ? 'border-t-2 border-black/10 text-black' : 'border-t border-[#FEBC11]/30 text-gray-300'
+                        className={`mt-3 pt-2 flex items-center justify-between text-xs font-mono font-bold ${
+                          isLight ? 'border-t-2 border-black/10 text-black' : 'border-t border-[#2A2A35] text-gray-400'
                         }`}
                       >
                         <span>{playlist.duration}</span>
-                        <span className="bg-[#FEBC11] text-[#0D0D0E] px-1.5 py-0.2 font-sans font-black border border-black">
+                        <span className="bg-[#FEBC11] text-[#0D0D0E] px-1.5 py-0.5 font-sans font-black border border-black">
                           {playlist.trackCount} {language === 'vi' ? 'bài' : 'tracks'}
                         </span>
                       </div>
@@ -230,15 +235,15 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                   <div
                     key={playlist.id}
                     onClick={() => onSelectPlaylist(playlist)}
-                    className={`group p-4 flex flex-col justify-between transition-all cursor-pointer ${
+                    className={`group p-4 flex flex-col justify-between hover:-translate-y-1 transition-all cursor-pointer ${
                       isLight
-                        ? 'bg-white border-2 border-black shadow-[4px_4px_0px_#000000] hover:shadow-[6px_6px_0px_#000000] hover:-translate-y-1'
-                        : 'bg-[#1A1A1E] border-2 border-[#2E2E38] shadow-brutal hover:border-[#FEBC11]/70 hover:bg-[#202026] hover:-translate-y-1'
+                        ? 'bg-white border-2 border-black shadow-[4px_4px_0px_#000000] hover:shadow-[6px_6px_0px_#000000]'
+                        : 'bg-[#1A1A1E] border-2 border-[#24242C] shadow-brutal hover:border-[#FEBC11]/70'
                     }`}
                   >
                     <div>
                       <div
-                        className="w-10 h-10 border-2 border-black flex items-center justify-center mb-2.5 font-bold text-base group-hover:rotate-6 transition-transform"
+                        className="w-10 h-10 border-2 border-black flex items-center justify-center font-bold text-base mb-2.5 group-hover:rotate-6 transition-transform"
                         style={{
                           backgroundColor: isLight ? `${playlist.accentColor}25` : `${playlist.accentColor}18`,
                           color: playlist.accentColor,
@@ -260,20 +265,20 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
 
                     <div
                       className={`mt-4 pt-3 flex items-center justify-between font-mono text-xs font-bold ${
-                        isLight ? 'border-t-2 border-black/10 text-black' : 'border-t border-[#2E2E38] text-gray-400'
+                        isLight ? 'border-t-2 border-black/10 text-black' : 'border-t border-[#2A2A35] text-gray-400'
                       }`}
                     >
                       {isCurrentSlot ? (
                         <>
-                          <span className={isLight ? 'text-black font-bold' : 'text-gray-300'}>
+                          <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>
                             {playlist.trackCount} {language === 'vi' ? 'BÀI' : 'TRACKS'}
                           </span>
-                          <span className={isLight ? 'text-black font-bold' : ''}>{playlist.duration}</span>
+                          <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>{playlist.duration}</span>
                         </>
                       ) : (
                         <>
-                          <span className={isLight ? 'text-black font-bold' : ''}>{playlist.duration}</span>
-                          <span className={isLight ? 'text-black font-bold' : 'text-[#FEBC11]'}>
+                          <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>{playlist.duration}</span>
+                          <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>
                             {playlist.trackCount} {language === 'vi' ? 'bài' : 'tracks'}
                           </span>
                         </>
@@ -293,8 +298,11 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
           <button
             onClick={() => {
               setShowAllTimeSlots(false);
-              const el = document.getElementById('slot-current');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              const currentSlot = timeSlots.find(s => s.isCurrentSlot);
+              if (currentSlot) {
+                const el = document.getElementById(currentSlot.id);
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }
             }}
             className={`text-xs font-black uppercase tracking-wider px-4 py-2 border-2 border-black shadow-brutal transition-all cursor-pointer flex items-center gap-2 ${
               isLight
@@ -305,8 +313,8 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
             <span>←</span>
             <span>
               {language === 'vi'
-                ? 'Thu gọn về khung giờ hiện tại (9 AM – 11 AM)'
-                : 'Collapse to current time frame (9 AM – 11 AM)'}
+                ? 'Thu gọn về khung giờ hiện tại'
+                : 'Collapse to current time frame'}
             </span>
           </button>
         </div>

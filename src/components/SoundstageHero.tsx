@@ -15,6 +15,8 @@ interface SoundstageHeroProps {
   listenersCount: number;
   onPairingClick: () => void;
   onSpotifyClick: () => void;
+  onSyncDesktop?: () => void;
+  spotifyDesktopStatus?: string;
   language: Language;
   theme?: 'dark' | 'light';
 }
@@ -31,10 +33,37 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   listenersCount,
   onPairingClick,
   onSpotifyClick,
+  onSyncDesktop,
+  spotifyDesktopStatus,
   language,
   theme = 'dark',
 }) => {
   const isLight = theme === 'light';
+  const [dateTimeStr, setDateTimeStr] = React.useState<string>('');
+
+  React.useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      };
+      setDateTimeStr(
+        language === 'vi'
+          ? now.toLocaleString('vi-VN', options)
+          : now.toLocaleString('en-US', options)
+      );
+    };
+
+    updateDateTime();
+    const timer = setInterval(updateDateTime, 1000);
+    return () => clearInterval(timer);
+  }, [language]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -84,6 +113,17 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
             <i className="fa-solid fa-location-dot text-[#FEBC11]"></i>
             Gate 7 Roastery • Không Gian Tầng 1 & 2
           </span>
+          {dateTimeStr && (
+            <span
+              id="datetime"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold border-2 border-black shadow-brutal ${
+                isLight ? 'bg-[#F9FAFB] text-gray-800' : 'bg-[#1C1C22] text-[#FEBC11] border-[#363644]'
+              }`}
+            >
+              <i className="fa-regular fa-clock"></i>
+              {dateTimeStr}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -187,7 +227,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
 
           {/* Track Typography & Highlights */}
           <div className="text-center sm:text-left space-y-2.5">
-            <div className="inline-flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <span
                 className={`text-[11px] font-black uppercase px-2.5 py-0.5 tracking-wider ${
                   isLight
@@ -197,9 +237,22 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
               >
                 {language === 'vi' ? 'KHUNG GIỜ VÀNG 9 AM – 11 AM' : 'GOLDEN HOUR 9 AM – 11 AM'}
               </span>
-              <span className={`text-xs font-bold ${isLight ? 'text-blue-700' : 'text-blue-400'}`}>
-                {language === 'vi' ? 'Giai điệu kết nối' : 'Connection Melodies'}
+
+              {/* Spotify Desktop Live Synced Badge */}
+              <span
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider border border-black shadow-brutal bg-[#1DB954] text-black"
+                title="Đồng bộ trực tiếp với Spotify Desktop"
+              >
+                <i className="fa-brands fa-spotify text-xs"></i>
+                <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></span>
+                <span>SPOTIFY DESKTOP</span>
               </span>
+
+              {spotifyDesktopStatus && (
+                <span className={`text-[11px] font-mono font-bold px-2 py-0.5 border border-black ${isLight ? 'bg-gray-100 text-gray-800' : 'bg-[#1F1F26] text-emerald-400 border-emerald-500/30'}`}>
+                  {spotifyDesktopStatus}
+                </span>
+              )}
             </div>
 
             <h1
@@ -259,22 +312,35 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
         </div>
 
         {/* Right: Action Controls + Progress Bar */}
-        <div className="flex flex-col items-center lg:items-end gap-3.5 w-full lg:w-72 shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center lg:items-end gap-3.5 w-full lg:w-80 shrink-0">
+          <div className="flex flex-wrap items-center justify-center lg:justify-end gap-2.5">
             {/* Toggle Vinyl Play/Pause Button */}
             <button
               id="hero-play-btn"
               aria-label={isPlaying ? 'Tạm dừng' : 'Phát'}
               onClick={onTogglePlay}
-              className="w-16 h-16 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] border-3 border-black shadow-brutal-lg hover:scale-105 active:scale-95 flex items-center justify-center text-2xl transition-all cursor-pointer"
+              className="w-14 h-14 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] border-3 border-black shadow-brutal-lg hover:scale-105 active:scale-95 flex items-center justify-center text-2xl transition-all cursor-pointer"
             >
               <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play ml-1'}`} id="hero-play-icon"></i>
             </button>
 
+            {/* Sync Desktop Button */}
+            {onSyncDesktop && (
+              <button
+                id="hero-spotify-sync-btn"
+                onClick={onSyncDesktop}
+                className="px-3.5 py-3.5 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] text-xs font-black border-2 border-black shadow-brutal hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 uppercase tracking-wider cursor-pointer"
+                title={language === 'vi' ? 'Đồng bộ bài hát đang phát trên Spotify Desktop' : 'Sync playing track from Spotify Desktop'}
+              >
+                <i className="fa-solid fa-arrows-rotate"></i>
+                <span className="hidden sm:inline">{language === 'vi' ? 'Đồng bộ' : 'Sync'}</span>
+              </button>
+            )}
+
             <button
               id="hero-spotify-open-btn"
               onClick={onSpotifyClick}
-              className="px-5 py-3.5 bg-[#1DB954] hover:bg-[#1ed760] text-black text-xs font-black border-2 border-black shadow-brutal hover:scale-105 active:scale-95 transition-all flex items-center gap-2 uppercase tracking-wider cursor-pointer"
+              className="px-4 py-3.5 bg-[#1DB954] hover:bg-[#1ed760] text-black text-xs font-black border-2 border-black shadow-brutal hover:scale-105 active:scale-95 transition-all flex items-center gap-2 uppercase tracking-wider cursor-pointer"
             >
               <i className="fa-brands fa-spotify text-base"></i>
               <span>{language === 'vi' ? 'Mở Spotify' : 'Open Spotify'}</span>

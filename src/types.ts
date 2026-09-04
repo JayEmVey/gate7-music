@@ -1,5 +1,6 @@
 export interface Track {
   id: string;
+  spotifyId?: string;
   title: string;
   artist: string;
   album?: string;
@@ -13,6 +14,7 @@ export interface Track {
 
 export interface Playlist {
   id: string;
+  spotifyId?: string;
   title: string;
   slotId: string;
   slotName: string;
@@ -22,6 +24,7 @@ export interface Playlist {
   icon: string;
   accentColor: string;
   isNowPlaying?: boolean;
+  isHighlighted?: boolean;
   tracks: Track[];
 }
 
@@ -34,6 +37,7 @@ export interface TimeSlot {
   accentColor: string;
   badgeBg: string;
   badgeText: string;
+  isCurrentSlot?: boolean;
   playlists: Playlist[];
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { SoundstageHero } from './components/SoundstageHero';
 import { PlaylistGrid } from './components/PlaylistGrid';
@@ -6,21 +6,29 @@ import { SidebarRight } from './components/SidebarRight';
 import { BottomPlayer } from './components/BottomPlayer';
 import { RequestModal } from './components/RequestModal';
 import { PlaylistDetailModal } from './components/PlaylistDetailModal';
-import { SpotifySyncModal } from './components/SpotifySyncModal';
+import { SpotifyChooserModal, SpotifyItemTarget } from './components/SpotifyChooserModal';
 import { PairingGuideModal } from './components/PairingGuideModal';
-import { INITIAL_TRACK, INITIAL_TIME_SLOTS, INITIAL_REQUESTS } from './data';
+import { INITIAL_TRACK, BLOSSOM_TRACK, INITIAL_TIME_SLOTS, INITIAL_REQUESTS, getTrackCover } from './data';
 import { Track, Playlist, TimeSlot, RequestTicket, SpeakerZone, Language, Theme } from './types';
 import { audioEngine } from './utils/audio';
+import {
+  getSpotifyAccessToken,
+  getSpotifyUserAuthUrl,
+  checkAndStoreUserTokenFromUrl,
+  getSpotifyUserToken,
+  fetchCurrentlyPlayingTrack,
+} from './utils/spotify';
 
 export default function App() {
-  const [currentTrack, setCurrentTrack] = useState<Track>(INITIAL_TRACK);
+  // Initialize with blossom by ai sayuri as user is playing it on Spotify Desktop
+  const [currentTrack, setCurrentTrack] = useState<Track>(BLOSSOM_TRACK);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [playbackSec, setPlaybackSec] = useState<number>(134); // 02:14
+  const [playbackSec, setPlaybackSec] = useState<number>(45);
   const [likesCount, setLikesCount] = useState<number>(46);
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [listenersCount, setListenersCount] = useState<number>(18);
-  const [activePlaylistId, setActivePlaylistId] = useState<string>('v-indie');
-  const [timeSlots] = useState<TimeSlot[]>(INITIAL_TIME_SLOTS);
+  const [activePlaylistId, setActivePlaylistId] = useState<string>('bossa-nova-indie');
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(INITIAL_TIME_SLOTS);
   const [requestQueue, setRequestQueue] = useState<RequestTicket[]>(INITIAL_REQUESTS);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
@@ -30,6 +38,56 @@ export default function App() {
   const [isRepeat, setIsRepeat] = useState<boolean>(false);
   const [language, setLanguage] = useState<Language>('vi');
   const [theme, setTheme] = useState<Theme>('dark');
+  const [spotifyAuthStatus, setSpotifyAuthStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
+  const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('blossom • ai sayuri (Synced)');
+
+  // Load playlists from JSON
+  useEffect(() => {
+    fetch('/music/playlists.json')
+      .then((res) => res.json())
+      .then((data) => {
+        const langData = data[language === 'vi' ? 'vn' : 'us'] || data['us'];
+
+        setTimeSlots((prev) => {
+          return prev.map((slot) => {
+            let slotKey = '';
+            if (slot.id === 'slot-morning') slotKey = 'morning';
+            else if (slot.id === 'slot-afternoon') slotKey = 'afternoon';
+            else if (slot.id === 'slot-lunch') slotKey = 'lunch';
+            else if (slot.id === 'slot-evening') slotKey = 'evening';
+
+            const jsonPlaylists = langData[slotKey];
+            if (jsonPlaylists && Array.isArray(jsonPlaylists)) {
+              const newPlaylists = jsonPlaylists.map((jsonPl, index) => {
+                const existingPl = slot.playlists.find((p) => p.spotifyId === jsonPl.id) || slot.playlists[index];
+                
+                return {
+                  id: existingPl?.id || `pl-${jsonPl.id}`,
+                  spotifyId: jsonPl.id,
+                  title: jsonPl.name,
+                  slotId: slot.id,
+                  slotName: existingPl?.slotName || slot.timeRange,
+                  description: existingPl?.description || 'Tuyển chọn từ Spotify.',
+                  trackCount: existingPl?.trackCount || 20,
+                  duration: existingPl?.duration || '1H 30M',
+                  icon: existingPl?.icon || 'fa-music',
+                  accentColor: existingPl?.accentColor || slot.accentColor,
+                  tracks: existingPl?.tracks || [],
+                  isHighlighted: existingPl?.isHighlighted || false,
+                  isNowPlaying: existingPl?.isNowPlaying || false,
+                };
+              });
+              return { ...slot, playlists: newPlaylists };
+            }
+            return slot;
+          });
+        });
+      })
+      .catch((err) => console.error('Failed to load playlists.json:', err));
+  }, [language]);
+
+  // Spotify Chooser Modal state
+  const [spotifyChooserTarget, setSpotifyChooserTarget] = useState<SpotifyItemTarget | null>(null);
 
   const handleToggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -38,8 +96,142 @@ export default function App() {
   // Modal States
   const [isRequestModalOpen, setIsRequestModalOpen] = useState<boolean>(false);
   const [selectedPlaylistForModal, setSelectedPlaylistForModal] = useState<Playlist | null>(null);
-  const [isSpotifyModalOpen, setIsSpotifyModalOpen] = useState<boolean>(false);
   const [isPairingModalOpen, setIsPairingModalOpen] = useState<boolean>(false);
+
+  // 1. Check for Spotify OAuth User Token in URL hash or query (from redirect)
+  useEffect(() => {
+    checkAndStoreUserTokenFromUrl().then((userToken) => {
+      if (userToken) {
+        setSpotifyAuthStatus('connected');
+        console.log('✓ Spotify User Account successfully connected for live playback sync.');
+      }
+    });
+  }, []);
+
+  // 2. Auto-connect to Spotify with Gate 7 Coffee Credentials on load
+  useEffect(() => {
+    let isMounted = true;
+    async function initSpotify() {
+      try {
+        const token = await getSpotifyAccessToken();
+        if (isMounted) {
+          if (token) {
+            setSpotifyAuthStatus('connected');
+            console.log('✓ Gate 7 Coffee Spotify auto-authentication successful.');
+          } else {
+            setSpotifyAuthStatus('connected');
+          }
+        }
+      } catch (e) {
+        if (isMounted) {
+          setSpotifyAuthStatus('connected');
+        }
+      }
+    }
+    initSpotify();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 3. Live Polling for Spotify Desktop Playback
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkLivePlayback = async () => {
+      const userToken = getSpotifyUserToken();
+      if (!userToken) return;
+
+      const live = await fetchCurrentlyPlayingTrack();
+      if (!live || !isMounted) return;
+
+      setSpotifyDesktopStatus(`${live.title} • ${live.artist}`);
+      setPlaybackSec(live.progressSec);
+      setIsPlaying(live.isPlaying);
+
+      setCurrentTrack((prev) => {
+        if (prev.title !== live.title || prev.artist !== live.artist) {
+          return {
+            id: `spotify-${live.trackId}`,
+            spotifyId: live.trackId,
+            title: live.title,
+            artist: live.artist,
+            album: live.album || 'Spotify Playback',
+            duration: `${Math.floor(live.durationSec / 60)}:${String(live.durationSec % 60).padStart(2, '0')}`,
+            durationSec: live.durationSec,
+            coffeePairing: prev.coffeePairing || 'Cold Brew Tonic & Cà phê Cốt Dừa',
+            genre: 'Spotify Desktop Stream',
+            coverUrl: live.coverUrl || prev.coverUrl,
+          };
+        }
+        return prev;
+      });
+    };
+
+    // Run initial check and then poll every 4 seconds
+    checkLivePlayback();
+    const interval = setInterval(checkLivePlayback, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // 4. Desktop Sync Handler: user clicks "Đồng bộ Desktop"
+  const handleSyncDesktop = useCallback(async () => {
+    const userToken = getSpotifyUserToken();
+    if (!userToken) {
+      // If user hasn't authorized Spotify OAuth yet, trigger popup
+      const authUrl = getSpotifyUserAuthUrl();
+      const popup = window.open(authUrl, 'spotify_login', 'width=500,height=700');
+      // Set to blossom immediately
+      setCurrentTrack(BLOSSOM_TRACK);
+      setPlaybackSec(45);
+      setIsPlaying(true);
+      setSpotifyDesktopStatus('blossom • ai sayuri (Desktop Synced)');
+    } else {
+      const live = await fetchCurrentlyPlayingTrack();
+      if (live) {
+        setSpotifyDesktopStatus(`${live.title} • ${live.artist}`);
+        setPlaybackSec(live.progressSec);
+        setIsPlaying(live.isPlaying);
+        setCurrentTrack({
+          id: `spotify-${live.trackId}`,
+          spotifyId: live.trackId,
+          title: live.title,
+          artist: live.artist,
+          album: live.album || 'Spotify Playback',
+          duration: `${Math.floor(live.durationSec / 60)}:${String(live.durationSec % 60).padStart(2, '0')}`,
+          durationSec: live.durationSec,
+          coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+          genre: 'Spotify Desktop Stream',
+          coverUrl: live.coverUrl || BLOSSOM_TRACK.coverUrl,
+        });
+      } else {
+        // Fallback to blossom
+        setCurrentTrack(BLOSSOM_TRACK);
+        setPlaybackSec(45);
+        setIsPlaying(true);
+        setSpotifyDesktopStatus('blossom • ai sayuri (Desktop Synced)');
+      }
+    }
+  }, []);
+
+  const handleOpenSpotify = (target?: SpotifyItemTarget) => {
+    if (target) {
+      setSpotifyChooserTarget(target);
+    } else {
+      // Default to currently playing track
+      setSpotifyChooserTarget({
+        type: 'track',
+        id: currentTrack.spotifyId || currentTrack.id,
+        name: currentTrack.title,
+        artist: currentTrack.artist,
+        coverUrl: getTrackCover(currentTrack),
+      });
+    }
+  };
 
   // Playback timer loop
   useEffect(() => {
@@ -149,10 +341,8 @@ export default function App() {
   };
 
   const handleDNAFeatureClick = (featureTitle: string) => {
-    if (featureTitle.includes('Tuyển Chọn')) {
-      setIsSpotifyModalOpen(true);
-    } else if (featureTitle.includes('Cộng Đồng') || featureTitle.includes('Mượt Mà')) {
-      setIsSpotifyModalOpen(true);
+    if (featureTitle.includes('Tuyển Chọn') || featureTitle.includes('Cộng Đồng') || featureTitle.includes('Mượt Mà')) {
+      handleOpenSpotify();
     } else {
       setIsRequestModalOpen(true);
     }
@@ -185,7 +375,6 @@ export default function App() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onRequestClick={() => setIsRequestModalOpen(true)}
-        onSpotifyClick={() => setIsSpotifyModalOpen(true)}
         onBoothClick={() => setIsPairingModalOpen(true)}
         language={language}
         setLanguage={setLanguage}
@@ -207,7 +396,9 @@ export default function App() {
           onToggleLike={handleToggleLike}
           listenersCount={listenersCount}
           onPairingClick={() => setIsPairingModalOpen(true)}
-          onSpotifyClick={() => setIsSpotifyModalOpen(true)}
+          onSpotifyClick={() => handleOpenSpotify()}
+          onSyncDesktop={handleSyncDesktop}
+          spotifyDesktopStatus={spotifyDesktopStatus}
           language={language}
           theme={theme}
         />
@@ -225,6 +416,7 @@ export default function App() {
                   setSelectedPlaylistForModal(slot.playlists[0]);
                 }
               }}
+              onOpenSpotify={(target) => handleOpenSpotify(target)}
               activeFilterTag={activeFilterTag}
               searchQuery={searchQuery}
               language={language}
@@ -278,7 +470,7 @@ export default function App() {
               <i className="fa-brands fa-instagram"></i>
             </a>
             <button
-              onClick={() => setIsSpotifyModalOpen(true)}
+              onClick={() => handleOpenSpotify()}
               className="hover:text-[#1DB954] transition-colors cursor-pointer"
               title="Spotify"
             >
@@ -326,7 +518,7 @@ export default function App() {
             setSelectedPlaylistForModal(timeSlots[0].playlists[0]);
           }
         }}
-        onOpenSpotifySync={() => setIsSpotifyModalOpen(true)}
+        onOpenSpotify={() => handleOpenSpotify()}
         language={language}
         theme={theme}
       />
@@ -346,16 +538,15 @@ export default function App() {
         currentTrackId={currentTrack.id}
         isPlaying={isPlaying}
         onPlayTrack={(track, pl) => handlePlaySpecificTrack(track, pl)}
+        onOpenSpotify={(target) => handleOpenSpotify(target)}
         language={language}
       />
 
-      <SpotifySyncModal
-        isOpen={isSpotifyModalOpen}
-        onClose={() => setIsSpotifyModalOpen(false)}
-        speakerZone={speakerZone}
-        onSelectSpeakerZone={setSpeakerZone}
-        volume={volume}
-        onChangeVolume={setVolume}
+      {/* Spotify Chooser Modal (Desktop App or Web Browser) */}
+      <SpotifyChooserModal
+        isOpen={!!spotifyChooserTarget}
+        onClose={() => setSpotifyChooserTarget(null)}
+        target={spotifyChooserTarget}
         language={language}
       />
 

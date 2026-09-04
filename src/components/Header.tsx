@@ -7,7 +7,7 @@ interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   onRequestClick: () => void;
-  onSpotifyClick: () => void;
+  onSpotifyClick?: () => void;
   onBoothClick: () => void;
   language: Language;
   setLanguage: (lang: Language) => void;
@@ -149,19 +149,18 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="sm:hidden">Request</span>
             </button>
 
-            {/* Spotify Sync Live Badge */}
-            <button
-              id="header-spotify-sync-btn"
-              onClick={onSpotifyClick}
-              className={`flex items-center gap-2 text-xs font-black px-3 py-2 border-2 border-black shadow-brutal cursor-pointer transition-all ${
+            {/* Auto-Connected Spotify Indicator */}
+            <div
+              className={`hidden sm:flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1.5 border-2 border-black shadow-brutal select-none ${
                 isLight
-                  ? 'bg-[#E8F8F0] hover:bg-[#D4F5E2] text-[#0A7336]'
-                  : 'bg-[#1DB954]/15 hover:bg-[#1DB954]/25 text-[#1ed760]'
+                  ? 'bg-[#E8F8F0] text-[#0A7336]'
+                  : 'bg-[#1DB954]/15 text-[#1ed760]'
               }`}
+              title="Spotify Connected (Gate 7 Roastery)"
             >
-              <i className="fa-brands fa-spotify text-base animate-pulse"></i>
-              <span className="hidden lg:inline">Spotify Sync</span>
-            </button>
+              <i className="fa-brands fa-spotify text-sm text-[#1DB954]"></i>
+              <span className="hidden lg:inline">Gate 7 Spotify</span>
+            </div>
 
             {/* Language Toggle */}
             <div className={`flex border-2 border-black p-0.5 font-black text-xs shadow-brutal ${isLight ? 'bg-white' : 'bg-[#141416]'}`}>

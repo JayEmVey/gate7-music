@@ -73,14 +73,24 @@ Replacing traditional static icons, this component introduces an animated SVG ch
 - **Playback Scrubber**: Scrub slider showing elapsed vs. total seconds with drag-to-seek support.
 - **Volume & Speaker Controls**: Real-time volume slider, mute toggle, speaker zone switcher, and full track detail modal trigger.
 
-### 2.7 Interactive Modals
+### 2.7 Interactive Modals & Spotify Integration
+- **Gate 7 Spotify Auto-Authentication (`/src/utils/spotify.ts`)**:
+  - Automatically connects to the Spotify Web API on page load using Gate 7 Coffee Roastery's Client ID (`be83df152a954a5fbe64cd9f065cb832`) and Client Secret (`eabdc8fb352a4504aab3e1379d8ad6a5`).
+  - Employs the OAuth 2.0 Client Credentials flow (`https://accounts.spotify.com/api/token`) with token caching and fallback resilience.
+  - Automatically prepares the "Now Playing" broadcast on load with zero manual sync steps required.
+  - Removed obsolete "Spotify Sync" buttons across the application in favor of persistent, automatic connection indicators.
+- **Spotify Chooser Modal (`SpotifyChooserModal.tsx`)**:
+  - Activated when a guest clicks "Open Spotify" on any track, playlist card, or in the bottom player bar.
+  - Prompts the user with an intuitive choice:
+    1. **Mở trong ứng dụng Spotify (Desktop App)**: Direct launch via deep URI scheme (`spotify:track:...` or `spotify:playlist:...`).
+    2. **Mở trong trình duyệt web (Web Browser)**: Standard link opening `https://open.spotify.com/...` in a new tab.
+    3. **Sao chép liên kết (Copy Link)**: One-click clipboard copy with animated visual feedback.
 - **Song Request Modal (`RequestModal.tsx`)**: Allows customers in the coffee shop to request songs with artist name, Spotify link, guest note, and coffee pairing choice.
 - **Sonic Flavor Pairing Guide Modal (`PairingGuideModal.tsx`)**: Detailed explanation of frequency-to-taste theory:
   - High Frequencies (Treble) → Elevates bright fruity acidity (Citrus, Floral, Jasmine).
   - Mid Frequencies (Mids) → Balances body, sweetness, and caramel notes.
   - Low Frequencies (Bass) → Amplifies deep roasted cacao, dark chocolate, and roasted nut undertones.
-- **Spotify Sync Modal (`SpotifySyncModal.tsx`)**: Connects customer Spotify accounts to save the roastery playlist or sync personal playlists.
-- **Playlist Detail Modal (`PlaylistDetailModal.tsx`)**: Full tracklist viewer with instant song selection.
+- **Playlist Detail Modal (`PlaylistDetailModal.tsx`)**: Full tracklist viewer with instant song selection and direct per-track & per-playlist "Open Spotify" triggers.
 
 ---
 
@@ -112,6 +122,11 @@ To provide realistic audio feedback without requiring external streaming credent
    - Built a two-stage CI/CD pipeline (`build` and `deploy`) using GitHub's official `actions/configure-pages@v5`, `actions/upload-pages-artifact@v3`, and `actions/deploy-pages@v4`.
    - Added `public/CNAME` configured to `music.gate7.vn` so Vite automatically copies the custom domain configuration to `dist/CNAME` during builds, preserving the custom domain on every automated deployment.
    - Configured `base: './'` in `vite.config.ts` for relative asset referencing across both root domains and GitHub Pages deployment targets.
+6. **Spotify Auto-Authentication & Chooser Modal**:
+   - Integrated Gate 7 Coffee Client ID & Client Secret via OAuth 2.0 Client Credentials flow directly on application mount.
+   - Removed redundant "Spotify Sync" manual buttons; status indicator in header displays "Gate 7 Spotify Connected".
+   - Created `SpotifyChooserModal` enabling guests to open songs/playlists either in the desktop Spotify app (`spotify://`) or in a new browser tab (`https://open.spotify.com`).
+   - Integrated playlist and track mapping dataset matching the reference `index.html` structure.
 
 ---
 

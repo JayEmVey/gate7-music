@@ -1,6 +1,7 @@
 import React from 'react';
 import { Playlist, Track, Language } from '../types';
 import { getTrackCover } from '../data';
+import { SpotifyItemTarget } from './SpotifyChooserModal';
 
 interface PlaylistDetailModalProps {
   playlist: Playlist | null;
@@ -9,6 +10,7 @@ interface PlaylistDetailModalProps {
   currentTrackId: string;
   isPlaying: boolean;
   onPlayTrack: (track: Track, playlist: Playlist) => void;
+  onOpenSpotify?: (target: SpotifyItemTarget) => void;
   language: Language;
 }
 
@@ -19,6 +21,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
   currentTrackId,
   isPlaying,
   onPlayTrack,
+  onOpenSpotify,
   language,
 }) => {
   if (!isOpen || !playlist) return null;
@@ -61,6 +64,25 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
             <p className="text-xs sm:text-sm text-gray-300 font-medium">
               {playlist.description}
             </p>
+            {onOpenSpotify && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenSpotify({
+                      type: 'playlist',
+                      id: playlist.spotifyId || playlist.id,
+                      name: playlist.title,
+                      slotName: playlist.slotName,
+                    })
+                  }
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#1DB954] hover:bg-[#1ed760] text-black text-xs font-black uppercase border-2 border-black shadow-brutal transition-transform active:scale-95 cursor-pointer"
+                >
+                  <i className="fa-brands fa-spotify text-sm"></i>
+                  <span>{language === 'vi' ? 'Mở Playlist trên Spotify' : 'Open Playlist on Spotify'}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -118,10 +140,29 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
                 </div>
 
                 {/* Duration & Play Action */}
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs font-mono font-bold text-gray-400">
                     {track.duration}
                   </span>
+                  {onOpenSpotify && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenSpotify({
+                          type: 'track',
+                          id: track.spotifyId || playlist.spotifyId || track.id,
+                          name: track.title,
+                          artist: track.artist,
+                          coverUrl: getTrackCover(track),
+                        });
+                      }}
+                      className="w-7 h-7 flex items-center justify-center border text-[#1DB954] hover:text-[#1ed760] bg-[#141416] border-[#363644] hover:border-[#1DB954] text-xs shadow-brutal transition-all cursor-pointer"
+                      title={language === 'vi' ? 'Mở bài hát này trên Spotify' : 'Open this song on Spotify'}
+                    >
+                      <i className="fa-brands fa-spotify"></i>
+                    </button>
+                  )}
                   <button
                     className={`w-7 h-7 flex items-center justify-center border text-xs shadow-brutal transition-all ${
                       isCurrent

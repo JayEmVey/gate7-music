@@ -72,11 +72,11 @@ Gate 7 is a coffee roastery dedicated to artisanal bean sourcing, precision roas
         ├── SonicPairingG7Icon.tsx   # Coffee bean & music note hugging animation component
         ├── PlaylistGrid.tsx         # Time-slot schedule cards and tracklists
         ├── SidebarRight.tsx         # Multi-zone speaker router, decibel meter & request queue
-        ├── BottomPlayer.tsx         # Persistent bottom audio bar with mini equalizer
+        ├── BottomPlayer.tsx         # Persistent bottom audio bar with mini equalizer & Spotify launcher
         ├── PairingGuideModal.tsx    # Sonic flavor pairing philosophy modal
         ├── RequestModal.tsx         # In-store guest song request form
-        ├── SpotifySyncModal.tsx     # Spotify integration modal
-        └── PlaylistDetailModal.tsx  # Full playlist track inspection dialog
+        ├── SpotifyChooserModal.tsx  # Modal for selecting Spotify Web Player vs. Desktop App
+        └── PlaylistDetailModal.tsx  # Full playlist track inspection dialog with Spotify actions
 ```
 
 ---
@@ -109,6 +109,12 @@ The development progressed through targeted functional and visual milestones:
    - Replaced with a bold, square Spotify song thumbnail frame with neo-brutalist styling.
    - Integrated the illustrated *Mats & My Bossa Nova Covers* artwork.
    - Implemented dynamic 5-channel animated equalizer bars and live broadcast status indicators.
+
+6. **Phase 6: Gate 7 Spotify Auto-Authentication & Chooser Modal**
+   - Integrated automatic client credentials authentication on page load using Gate 7 Coffee Roastery's credentials.
+   - Preloaded the "Now Playing" broadcast with active metadata and time-synchronized playback.
+   - Removed the manual "Spotify Sync" button from the header and bottom player.
+   - Added `SpotifyChooserModal` allowing visitors to choose between opening links directly in the Spotify Desktop App (`spotify://`) or in a new Web browser tab (`https://open.spotify.com`), with one-click URL copying.
 
 ---
 
