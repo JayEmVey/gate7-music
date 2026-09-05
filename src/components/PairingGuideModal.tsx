@@ -43,13 +43,17 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
               <i className="fa-solid fa-mug-hot"></i>
               {language === 'vi' ? 'TRIẾT LÝ HÒA ÂM & VỊ GIÁC' : 'COFFEE & SOUND FREQUENCIES'}
             </div>
+            <div className="inline-flex items-center gap-2 mt-2 bg-[#202026] text-[#FEBC11] text-[10px] font-black uppercase px-2 py-0.5 border border-[#FEBC11] shadow-brutal">
+              <i className="fa-solid fa-flask"></i>
+              {language === 'vi' ? 'THỬ NGHIỆM' : 'TRIAL MODE'}
+            </div>
             <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
               {language === 'vi' ? 'Hòa Âm Hương Vị Cà Phê Gate 7' : 'Gate 7 Sonic Flavor Pairings'}
             </h2>
             <p className="text-xs sm:text-sm text-gray-300 font-medium leading-relaxed">
               {language === 'vi'
-                ? 'Từng nốt hương của cà phê đặc sản được khuếch đại bằng tần số âm thanh tương thích. Khám phá sự kết hợp hoàn hảo cho buổi thưởng cà phê của bạn.'
-                : 'Every flavor note of specialty coffee is amplified by matching sound frequencies. Discover the ideal pairing for your cup.'}
+                ? 'Tính năng này đang ở giai đoạn thử nghiệm, nhằm khám phá cách phối âm thanh với hương vị cà phê. Bạn có thể thử trải nghiệm và góp ý để chúng mình hoàn thiện dần.'
+                : 'This feature is currently in a trial phase as we explore how sound and coffee flavor can work together. You can try it out and share feedback while we refine it.'}
             </p>
           </div>
         </div>

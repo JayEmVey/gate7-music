@@ -6,6 +6,7 @@ import { SonicPairingG7Icon } from './SonicPairingG7Icon';
 interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  onSearchSubmit: () => void;
   onRequestClick: () => void;
   onSpotifyClick?: () => void;
   onBoothClick: () => void;
@@ -18,6 +19,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   searchQuery,
   setSearchQuery,
+  onSearchSubmit,
   onRequestClick,
   onSpotifyClick,
   onBoothClick,
@@ -67,14 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden md:inline"> SOUNDSTAGE</span>
         </div>
 
-        <div
-          className={`hidden sm:flex items-center gap-2 font-mono text-[11px] border-2 border-black px-2.5 py-0.5 shadow-brutal shrink-0 ${
-            isLight ? 'bg-white text-black' : 'bg-[#141416] text-[#FEBC11]'
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>{currentTime || '11:20:00 • THỨ SÁU'}</span>
-        </div>
+        
       </div>
 
       {/* Main Header */}
@@ -116,6 +111,12 @@ export const Header: React.FC<HeaderProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onSearchSubmit();
+                  }
+                }}
                 placeholder={language === 'vi' ? 'Tìm bài hát, nghệ sĩ, playlist đang phát tại Gate 7...' : 'Search songs, artists, playlists at Gate 7...'}
                 className={`w-full text-xs font-bold pl-10 pr-4 py-2.5 border-2 border-black shadow-brutal focus:outline-none focus:border-[#FEBC11] transition-all ${
                   isLight
@@ -138,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Action Controls */}
           <div className="flex items-center gap-2.5 shrink-0">
-            {/* Request Button */}
+            {/* Request Button 
             <button
               id="header-request-btn"
               onClick={onRequestClick}
@@ -147,9 +148,9 @@ export const Header: React.FC<HeaderProps> = ({
               <i className="fa-solid fa-hand-holding-heart text-sm"></i>
               <span className="hidden sm:inline">{language === 'vi' ? 'Yêu cầu bài' : 'Song Request'}</span>
               <span className="sm:hidden">Request</span>
-            </button>
+            </button> */}
 
-            {/* Auto-Connected Spotify Indicator */}
+            {/* Auto-Connected Spotify Indicator 
             <div
               className={`hidden sm:flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1.5 border-2 border-black shadow-brutal select-none ${
                 isLight
@@ -160,7 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <i className="fa-brands fa-spotify text-sm text-[#1DB954]"></i>
               <span className="hidden lg:inline">Gate 7 Spotify</span>
-            </div>
+            </div> */}
 
             {/* Language Toggle */}
             <div className={`flex border-2 border-black p-0.5 font-black text-xs shadow-brutal ${isLight ? 'bg-white' : 'bg-[#141416]'}`}>
@@ -244,8 +245,8 @@ export const Header: React.FC<HeaderProps> = ({
                   SONIC PAIRINGS
                 </span>
                 <span className={`text-[9px] font-extrabold flex items-center gap-1 ${isLight ? 'text-gray-700' : 'text-[#FEBC11]'}`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  {language === 'vi' ? 'Thử Ngay' : 'Try Now'}
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  {language === 'vi' ? 'Thử Nghiệm' : 'Trial Mode'}
                 </span>
               </div>
             </button>

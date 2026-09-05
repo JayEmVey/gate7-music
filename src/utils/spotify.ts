@@ -95,6 +95,36 @@ export interface SpotifyPlaylistTrack {
   spotifyUri: string;
 }
 
+export async function fetchSpotifySearchTracks(query: string): Promise<SpotifyPlaylistTrack[]> {
+  const params = new URLSearchParams({
+    q: query.trim(),
+    type: 'track,artist',
+    limit: '10',
+    market: 'US',
+  });
+  const response = await spotifyFetch(`/search?${params.toString()}`);
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const body = await response.json();
+      detail = body.error?.message || body.error?.reason || '';
+    } catch {
+      // Keep the status message when Spotify returns a non-JSON error body.
+    }
+    throw new SpotifyApiError(response.status, `Could not search Spotify (${response.status}${detail ? `: ${detail}` : ''})`);
+  }
+  const data = await response.json();
+  return (data.tracks?.items || []).filter((item: any) => item?.id).map((item: any) => ({
+    id: item.id,
+    title: item.name,
+    artist: item.artists?.map((artist: { name: string }) => artist.name).join(', ') || 'Unknown Artist',
+    album: item.album?.name || '',
+    durationSec: Math.floor((item.duration_ms || 0) / 1000),
+    coverUrl: item.album?.images?.[0]?.url || '',
+    spotifyUri: item.uri || `spotify:track:${item.id}`,
+  }));
+}
+
 export class SpotifyApiError extends Error {
   constructor(
     public readonly status: number,
@@ -465,6 +495,36 @@ export async function fetchCurrentlyPlayingTrack(): Promise<SpotifyLivePlaybackI
     };
   } catch (err) {
     console.warn('Could not fetch Spotify currently-playing track:', err);
+    return null;
+  }
+}
+
+export async function fetchSpotifyTrackMetrics(trackId: string): Promise<{ likes: number; listeners: number } | null> {
+  if (!trackId) return null;
+
+  try {
+    const trackResponse = await spotifyFetch(`/tracks/${encodeURIComponent(trackId)}`);
+    if (!trackResponse.ok) return null;
+    const trackData = await trackResponse.json();
+
+    const popularity = Number(trackData.popularity ?? 0);
+    const artistId = trackData.artists?.[0]?.id;
+
+    let followers = 0;
+    if (artistId) {
+      const artistResponse = await spotifyFetch(`/artists/${encodeURIComponent(artistId)}`);
+      if (artistResponse.ok) {
+        const artistData = await artistResponse.json();
+        followers = Number(artistData.followers?.total ?? 0);
+      }
+    }
+
+    return {
+      likes: Math.max(1, Math.round(popularity * 1.2)),
+      listeners: Math.max(1, Math.round(followers / 1000)),
+    };
+  } catch (error) {
+    console.warn('Could not fetch Spotify public track metrics:', error);
     return null;
   }
 }

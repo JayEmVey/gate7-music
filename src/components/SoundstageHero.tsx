@@ -17,6 +17,7 @@ interface SoundstageHeroProps {
   onSpotifyClick: () => void;
   onSyncDesktop?: () => void;
   spotifyDesktopStatus?: string;
+  spotifySource?: 'desktop' | 'web';
   language: Language;
   theme?: 'dark' | 'light';
 }
@@ -35,6 +36,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   onSpotifyClick,
   onSyncDesktop,
   spotifyDesktopStatus,
+  spotifySource = 'desktop',
   language,
   theme = 'dark',
 }) => {
@@ -70,6 +72,23 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
     const secs = Math.floor(seconds % 60);
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
+
+  const subtitleText = (() => {
+    const title = currentTrack.title?.trim() || '';
+    const artist = currentTrack.artist?.trim() || '';
+    const album = currentTrack.album?.trim() || '';
+
+    const normalizedTitle = title.toLowerCase();
+    const normalizedArtist = artist.toLowerCase();
+    const normalizedAlbum = album.toLowerCase();
+
+    const cleanArtist = artist && normalizedArtist !== normalizedTitle ? artist : '';
+    const cleanAlbum = album && normalizedAlbum !== normalizedTitle ? album : '';
+
+    if (!cleanArtist && !cleanAlbum) return '';
+    if (cleanArtist && cleanAlbum) return `${cleanArtist} • ${cleanAlbum}`;
+    return cleanArtist || cleanAlbum;
+  })();
 
   const progressPercent = Math.min(100, (playbackSec / currentTrack.durationSec) * 100);
 
@@ -111,7 +130,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
             }`}
           >
             <i className="fa-solid fa-location-dot text-[#FEBC11]"></i>
-            Gate 7 Roastery • Không Gian Tầng 1 & 2
+            Gate 7 Coffee Roastery • 162A Nguyễn Trường Tộ
           </span>
           {dateTimeStr && (
             <span
@@ -124,19 +143,6 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
               {dateTimeStr}
             </span>
           )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span
-            className={`text-xs font-black px-3 py-1 border-2 border-black shadow-brutal ${
-              isLight ? 'bg-white text-black' : 'bg-[#25252E] text-[#FEBC11] border-[#363644]'
-            }`}
-          >
-            <i className="fa-solid fa-volume-high mr-1 text-[#FEBC11]"></i> 72dB LO-FI STANDARD
-          </span>
-          <span className="text-xs font-black text-white bg-blue-600 px-3 py-1 border-2 border-black shadow-brutal">
-            HI-FI LOSSLESS
-          </span>
         </div>
       </div>
 
@@ -173,12 +179,6 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
 
               {/* Gradient Vignette */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none"></div>
-
-              {/* Top-Left Spotify Barista Selection Badge */}
-              <div className="absolute top-2.5 left-2.5 bg-black/85 backdrop-blur-xs text-white border border-white/20 px-2 py-0.5 flex items-center gap-1.5 shadow-sm pointer-events-none z-10">
-                <i className="fa-brands fa-spotify text-[#1DB954] text-xs"></i>
-                <span className="text-[9px] font-black uppercase tracking-wider">SPOTIFY MASTER</span>
-              </div>
 
               {/* Hover Play/Pause Interactive Overlay */}
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
@@ -238,14 +238,14 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
                 {language === 'vi' ? 'KHUNG GIỜ VÀNG 9 AM – 11 AM' : 'GOLDEN HOUR 9 AM – 11 AM'}
               </span>
 
-              {/* Spotify Desktop Live Synced Badge */}
+              {/* Spotify Playback Source Badge */}
               <span
                 className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider border border-black shadow-brutal bg-[#1DB954] text-black"
-                title="Đồng bộ trực tiếp với Spotify Desktop"
+                title={spotifySource === 'web' ? 'Bài đang phát từ Spotify Web' : 'Bài đang phát từ Spotify Desktop'}
               >
                 <i className="fa-brands fa-spotify text-xs"></i>
                 <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></span>
-                <span>SPOTIFY DESKTOP</span>
+                <span>{spotifySource === 'web' ? 'SPOTIFY WEB' : 'SPOTIFY DESKTOP'}</span>
               </span>
 
               {spotifyDesktopStatus && (
@@ -263,10 +263,11 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
               {currentTrack.title}
             </h1>
 
-            <p className={`text-base md:text-lg font-bold ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
-              {currentTrack.artist} <span className="text-[#FEBC11]">✦</span>{' '}
-              <span>{currentTrack.album || 'Tuyển tập V-Indie Acoustic Coffee Chill'}</span>
-            </p>
+            {subtitleText && (
+              <p className={`text-base md:text-lg font-bold ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
+                {subtitleText}
+              </p>
+            )}
 
             {/* Social Badges & Coffee Pairing */}
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
@@ -276,7 +277,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
                 }`}
               >
                 <i className={`fa-solid fa-users ${isLight ? 'text-blue-600' : 'text-blue-400'}`}></i>
-                {listenersCount} {language === 'vi' ? 'khách đang cùng nghe tại quán' : 'listeners live'}
+                {listenersCount} {language === 'vi' ? 'Monthly listeners' : 'Monthly listeners'}
               </span>
 
               <button
@@ -291,7 +292,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
                 }`}
               >
                 <i className={`fa-solid fa-heart text-red-500 ${isLiked ? 'animate-bounce' : ''}`}></i>{' '}
-                {likesCount} {language === 'vi' ? 'Yêu thích' : 'Likes'}
+                {likesCount} {language === 'vi' ? 'Followers' : 'Followers'}
               </button>
 
               <button
@@ -364,9 +365,6 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
 
             <div className={`flex justify-between text-xs font-mono font-bold ${isLight ? 'text-black' : 'text-gray-300'}`}>
               <span>{formatTime(playbackSec)}</span>
-              <span className="text-[10px] uppercase font-sans font-black bg-[#FEBC11] text-[#0D0D0E] px-1.5 py-0.2 border border-black">
-                {language === 'vi' ? 'TRỰC TIẾP TẠI QUÁN' : 'LIVE AT ROASTERY'}
-              </span>
               <span>{currentTrack.duration}</span>
             </div>
           </div>
@@ -432,7 +430,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
             className="px-4 py-2 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] text-xs font-black uppercase tracking-wider border-2 border-black shadow-brutal flex items-center gap-2 transition-transform group-hover:scale-105 active:scale-95 cursor-pointer"
           >
             <i className="fa-solid fa-wand-magic-sparkles text-xs"></i>
-            <span>{language === 'vi' ? 'Thử Ngay' : 'Try Pairing'}</span>
+            <span>{language === 'vi' ? 'Thử Nghiệm' : 'Trial Pairing'}</span>
             <span>→</span>
           </button>
         </div>

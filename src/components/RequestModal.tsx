@@ -77,13 +77,17 @@ export const RequestModal: React.FC<RequestModalProps> = ({
             <i className="fa-solid fa-hand-holding-heart"></i>
             {language === 'vi' ? 'TRẠM YÊU CẦU BÀI HÁT TẠI QUÁN' : 'STORE MUSIC REQUEST BOOTH'}
           </div>
+          <div className="inline-flex items-center gap-2 bg-[#202026] text-[#FEBC11] text-[10px] font-black uppercase px-2 py-0.5 border border-[#FEBC11] shadow-brutal">
+            <i className="fa-solid fa-flask"></i>
+            {language === 'vi' ? 'THỬ NGHIỆM' : 'TRIAL MODE'}
+          </div>
           <h2 className="text-2xl font-black uppercase tracking-tight text-white">
             {language === 'vi' ? 'Gửi Bài Bạn Muốn Nghe' : 'Request Your Song'}
           </h2>
           <p className="text-xs text-gray-300 font-medium">
             {language === 'vi'
-              ? 'Bài hát của bạn sẽ được gửi thẳng đến Barista DJ Booth và xếp vào hàng đợi phát sóng trực tiếp.'
-              : 'Your requested track will be sent directly to the Barista DJ Booth and queued live.'}
+              ? 'Tính năng này đang ở giai đoạn thử nghiệm. Bài hát của bạn sẽ được gửi đến Barista DJ Booth để thử nghiệm hàng đợi phát sóng trực tiếp.'
+              : 'This feature is currently in a trial phase. Your request will be sent to the Barista DJ Booth to test the live queue flow.'}
           </p>
         </div>
 

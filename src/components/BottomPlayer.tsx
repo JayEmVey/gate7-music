@@ -146,14 +146,16 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
               <i className="fa-brands fa-spotify text-sm"></i>
             </button>
           </div>
-          <p
-            onClick={onOpenTrackDetail}
-            className={`text-xs font-semibold truncate cursor-pointer ${
-              isLight ? 'text-gray-700 hover:text-black' : 'text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            {currentTrack.artist} • Gate 7 Soundstage
-          </p>
+          {currentTrack.artist && currentTrack.artist.toLowerCase() !== currentTrack.title.toLowerCase() && (
+            <p
+              onClick={onOpenTrackDetail}
+              className={`text-xs font-semibold truncate cursor-pointer ${
+                isLight ? 'text-gray-700 hover:text-black' : 'text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              {currentTrack.artist} • Gate 7 Soundstage
+            </p>
+          )}
         </div>
 
         <button

@@ -6,6 +6,7 @@ import { SidebarRight } from './components/SidebarRight';
 import { BottomPlayer } from './components/BottomPlayer';
 import { RequestModal } from './components/RequestModal';
 import { PlaylistDetailModal } from './components/PlaylistDetailModal';
+import { SearchResultsModal } from './components/SearchResultsModal';
 import { SpotifyChooserModal, SpotifyItemTarget } from './components/SpotifyChooserModal';
 import { PairingGuideModal } from './components/PairingGuideModal';
 import { INITIAL_TIME_SLOTS, INITIAL_REQUESTS, getTrackCover } from './data';
@@ -17,6 +18,8 @@ import {
   fetchCurrentlyPlayingTrack,
   refreshSpotifyUserToken,
   fetchCachedPlaylistTracks,
+  fetchSpotifySearchTracks,
+  fetchSpotifyTrackMetrics,
   transferSpotifyPlayback,
   startSpotifyPlayback,
   pauseSpotifyPlayback,
@@ -75,11 +78,25 @@ const EMPTY_SPOTIFY_TRACK: Track = {
 };
 
 const PLAYBACK_STATE_KEY = 'gate7_playback_state';
+const THEME_STORAGE_KEY = 'gate7_theme';
+const LANGUAGE_STORAGE_KEY = 'gate7_language';
 
 interface PersistedPlaybackState {
   track: Track;
   playbackSec: number;
   isPlaying: boolean;
+}
+
+function getStoredTheme(): Theme {
+  if (typeof window === 'undefined') return 'dark';
+  const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+  return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
+}
+
+function getStoredLanguage(): Language {
+  if (typeof window === 'undefined') return 'vi';
+  const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  return savedLanguage === 'en' || savedLanguage === 'vi' ? savedLanguage : 'vi';
 }
 
 function getPersistedPlaybackState(): PersistedPlaybackState | null {
@@ -108,15 +125,20 @@ export default function App() {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(getInitialTimeSlots);
   const [requestQueue, setRequestQueue] = useState<RequestTicket[]>(INITIAL_REQUESTS);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string>();
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
   const [speakerZone, setSpeakerZone] = useState<SpeakerZone>('main');
   const [volume, setVolume] = useState<number>(72);
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [isRepeat, setIsRepeat] = useState<boolean>(false);
-  const [language, setLanguage] = useState<Language>('vi');
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [language, setLanguage] = useState<Language>(getStoredLanguage);
+  const [theme, setTheme] = useState<Theme>(getStoredTheme);
   const [spotifyAuthStatus, setSpotifyAuthStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
   const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('Waiting for Spotify playback');
+  const [spotifySource, setSpotifySource] = useState<'desktop' | 'web'>('desktop');
   const spotifyPlayerRef = useRef<SpotifyWebPlaybackPlayer | null>(null);
   const spotifyDeviceIdRef = useRef<string | null>(null);
   const loadedPlaylistIdsRef = useRef(new Set<string>());
@@ -127,6 +149,14 @@ export default function App() {
   const pendingRestoreRef = useRef<PersistedPlaybackState | null>(persistedPlayback);
   const isLocalPlaybackActiveRef = useRef(false);
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  }, [language]);
 
   useEffect(() => {
     const updateCurrentSlot = () => {
@@ -257,14 +287,15 @@ export default function App() {
       player.addListener('ready', async ({ device_id }) => {
         spotifyDeviceIdRef.current = device_id;
         setSpotifyPlayerReady(true);
+        setSpotifySource('web');
         const saved = getPersistedPlaybackState();
         if (saved) {
           setCurrentTrack(saved.track);
           setPlaybackSec(saved.playbackSec);
           setIsPlaying(false);
-          setSpotifyDesktopStatus('Spotify player ready — press Play to resume');
+          setSpotifyDesktopStatus('');
         } else {
-          setSpotifyDesktopStatus('Spotify player ready — select a track or press Play');
+          setSpotifyDesktopStatus('');
         }
       });
       player.addListener('not_ready', () => {
@@ -288,6 +319,7 @@ export default function App() {
           return;
         }
         isLocalPlaybackActiveRef.current = true;
+        setSpotifySource('web');
         pendingRestoreRef.current = null;
         const liveTrack = toAppTrack(state.track_window.current_track, currentTrack.coverUrl);
         setCurrentTrack(liveTrack);
@@ -330,6 +362,7 @@ export default function App() {
       if (isLocalPlaybackActiveRef.current) return;
       const live = await fetchCurrentlyPlayingTrack();
       if (!live) return;
+      setSpotifySource('desktop');
       setCurrentTrack((prev) => toAppTrack({
         id: live.trackId,
         name: live.title,
@@ -381,6 +414,7 @@ export default function App() {
     } else {
       const live = await fetchCurrentlyPlayingTrack();
       if (live) {
+        setSpotifySource('desktop');
         setSpotifyDesktopStatus(`${live.title} • ${live.artist}`);
         setPlaybackSec(live.progressSec);
         setIsPlaying(live.isPlaying);
@@ -418,6 +452,23 @@ export default function App() {
       });
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshPublicMetrics = async () => {
+      if (!currentTrack.spotifyId) return;
+      const metrics = await fetchSpotifyTrackMetrics(currentTrack.spotifyId);
+      if (!metrics || cancelled) return;
+      setLikesCount(metrics.likes);
+      setListenersCount(metrics.listeners);
+    };
+
+    refreshPublicMetrics();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentTrack.spotifyId]);
 
   useEffect(() => {
     if (!currentTrack.spotifyId) return;
@@ -532,6 +583,46 @@ export default function App() {
   const handleSelectPlaylist = (playlist: Playlist) => {
     setActivePlaylistId(playlist.id);
     loadPlaylistTracks(playlist);
+  };
+
+  const handleSearchSubmit = async (nextQuery = searchQuery) => {
+    const query = nextQuery.trim();
+    if (!query) return;
+    setSearchQuery(query);
+
+    const normalizedQuery = query.toLowerCase();
+    const localTracks = timeSlots
+      .flatMap((slot) => slot.playlists.flatMap((playlist) => playlist.tracks))
+      .filter((track, index, tracks) => {
+        const matches = `${track.title} ${track.artist} ${track.album || ''}`.toLowerCase().includes(normalizedQuery);
+        return matches && tracks.findIndex((candidate) => candidate.id === track.id) === index;
+      });
+
+    setSearchResults(localTracks);
+    setSearchError(undefined);
+    setIsSearchModalOpen(true);
+    setIsSearchLoading(true);
+
+    try {
+      const spotifyTracks = await fetchSpotifySearchTracks(query);
+      setSearchResults(spotifyTracks.map((track) => ({
+        id: `spotify-${track.id}`,
+        spotifyId: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
+        durationSec: track.durationSec,
+        coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+        coverUrl: track.coverUrl,
+      })));
+    } catch (error) {
+      if (localTracks.length === 0) {
+        setSearchError(error instanceof Error ? error.message : 'Spotify search failed.');
+      }
+    } finally {
+      setIsSearchLoading(false);
+    }
   };
 
   const handlePlaySpecificTrack = async (track: Track, playlist: Playlist) => {
@@ -774,6 +865,7 @@ export default function App() {
       <Header
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        onSearchSubmit={() => void handleSearchSubmit()}
         onRequestClick={() => setIsRequestModalOpen(true)}
         onBoothClick={() => setIsPairingModalOpen(true)}
         language={language}
@@ -799,6 +891,7 @@ export default function App() {
           onSpotifyClick={() => handleOpenSpotify()}
           onSyncDesktop={handleSyncDesktop}
           spotifyDesktopStatus={spotifyDesktopStatus}
+          spotifySource={spotifySource}
           language={language}
           theme={theme}
         />
@@ -928,6 +1021,35 @@ export default function App() {
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
         onSubmitRequest={handleSubmitRequest}
+        language={language}
+      />
+
+      <SearchResultsModal
+        query={searchQuery}
+        tracks={searchResults}
+        isOpen={isSearchModalOpen}
+        isLoading={isSearchLoading}
+        error={searchError}
+        currentTrackId={currentTrack.id}
+        isPlaying={isPlaying}
+        onClose={() => setIsSearchModalOpen(false)}
+        onSearch={(query) => void handleSearchSubmit(query)}
+        onPlayTrack={(track) => {
+          const searchPlaylist: Playlist = {
+            id: 'search-results',
+            spotifyId: 'search-results',
+            title: `Search: ${searchQuery}`,
+            slotId: 'search',
+            slotName: 'Spotify Search',
+            description: 'Spotify search results',
+            trackCount: searchResults.length,
+            duration: '',
+            icon: 'fa-search',
+            accentColor: '#FEBC11',
+            tracks: searchResults,
+          };
+          void handlePlaySpecificTrack(track, searchPlaylist);
+        }}
         language={language}
       />
 
