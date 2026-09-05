@@ -1,13 +1,16 @@
 import React from 'react';
 import { COFFEE_PAIRINGS } from '../data';
 import { Language } from '../types';
+import { Track } from '../types';
 import { SonicPairingG7Icon } from './SonicPairingG7Icon';
+import { getCoffeePairing } from '../utils/pairing';
 
 interface PairingGuideModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectGenre: (genre: string) => void;
   language: Language;
+  currentTrack: Track;
 }
 
 export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
@@ -15,8 +18,15 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
   onClose,
   onSelectGenre,
   language,
+  currentTrack,
 }) => {
   if (!isOpen) return null;
+
+  const recommendedDrink = getCoffeePairing(
+    currentTrack.audioFeatures,
+    currentTrack.coffeePairing || 'Drip Drop Coffee',
+    language,
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
@@ -58,12 +68,26 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
           </div>
         </div>
 
+        <div className="mb-6 border-2 border-[#FEBC11] bg-[#24221A] px-4 py-3 shadow-brutal">
+          <div className="text-[10px] font-black uppercase tracking-wider text-[#FEBC11]">
+            {language === 'vi' ? 'Best with • Theo Audio Features' : 'Best with • Audio Features Match'}
+          </div>
+          <div className="mt-1 text-sm font-black text-white">{recommendedDrink}</div>
+          <div className="mt-1 text-[11px] text-gray-300">
+            {currentTrack.title} • {currentTrack.artist}
+          </div>
+        </div>
+
         {/* Pairing Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           {COFFEE_PAIRINGS.map((item) => (
             <div
               key={item.drink}
-              className="p-4 bg-[#1F1F24] border-2 border-[#2E2E38] shadow-brutal flex flex-col justify-between hover:border-[#FEBC11] transition-all group"
+              className={`p-4 border-2 shadow-brutal flex flex-col justify-between hover:border-[#FEBC11] transition-all group ${
+                item.drink === recommendedDrink
+                  ? 'bg-[#2A2618] border-[#FEBC11]'
+                  : 'bg-[#1F1F24] border-[#2E2E38]'
+              }`}
             >
               <div>
                 <div className="flex items-center justify-between mb-2">

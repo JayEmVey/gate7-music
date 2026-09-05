@@ -95,6 +95,19 @@ export interface SpotifyPlaylistTrack {
   spotifyUri: string;
 }
 
+export interface SpotifyTrackAudioFeatures {
+  acousticness: number;
+  danceability: number;
+  energy: number;
+  instrumentalness: number;
+  key: number;
+  liveness: number;
+  loudness: number;
+  mode: number;
+  tempo: number;
+  valence: number;
+}
+
 export async function fetchSpotifySearchTracks(query: string): Promise<SpotifyPlaylistTrack[]> {
   const params = new URLSearchParams({
     q: query.trim(),
@@ -123,6 +136,32 @@ export async function fetchSpotifySearchTracks(query: string): Promise<SpotifyPl
     coverUrl: item.album?.images?.[0]?.url || '',
     spotifyUri: item.uri || `spotify:track:${item.id}`,
   }));
+}
+
+export async function fetchSpotifyTrackAudioFeatures(trackId: string): Promise<SpotifyTrackAudioFeatures | null> {
+  if (!trackId) return null;
+
+  try {
+    const response = await spotifyFetch(`/audio-features/${encodeURIComponent(trackId)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data || typeof data.tempo !== 'number') return null;
+
+    return {
+      acousticness: Number(data.acousticness ?? 0),
+      danceability: Number(data.danceability ?? 0),
+      energy: Number(data.energy ?? 0),
+      instrumentalness: Number(data.instrumentalness ?? 0),
+      key: Number(data.key ?? -1),
+      liveness: Number(data.liveness ?? 0),
+      loudness: Number(data.loudness ?? 0),
+      mode: Number(data.mode ?? -1),
+      tempo: Number(data.tempo),
+      valence: Number(data.valence ?? 0),
+    };
+  } catch (error) {
+    return null;
+  }
 }
 
 export class SpotifyApiError extends Error {
@@ -525,6 +564,23 @@ export async function fetchSpotifyTrackMetrics(trackId: string): Promise<{ likes
     };
   } catch (error) {
     console.warn('Could not fetch Spotify public track metrics:', error);
+    return null;
+  }
+}
+
+export async function fetchSpotifyTrackLoudness(trackId: string): Promise<number | null> {
+  if (!trackId) return null;
+
+  try {
+    const params = new URLSearchParams({ ids: trackId });
+    const response = await spotifyFetch(`/audio-features?${params.toString()}`);
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const loudness = data.audio_features?.[0]?.loudness;
+    return typeof loudness === 'number' && Number.isFinite(loudness) ? loudness : null;
+  } catch (error) {
+    console.warn('Could not fetch Spotify track loudness:', error);
     return null;
   }
 }

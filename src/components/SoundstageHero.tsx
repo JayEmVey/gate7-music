@@ -1,7 +1,8 @@
 import React from 'react';
-import { Track, Language } from '../types';
+import { Track, TrackAudioFeatures, Language } from '../types';
 import { SonicPairingG7Icon } from './SonicPairingG7Icon';
 import { getTrackCover } from '../data';
+import { getCoffeePairing } from '../utils/pairing';
 
 interface SoundstageHeroProps {
   currentTrack: Track;
@@ -9,10 +10,6 @@ interface SoundstageHeroProps {
   onTogglePlay: () => void;
   playbackSec: number;
   onSeek: (sec: number) => void;
-  likesCount: number;
-  isLiked: boolean;
-  onToggleLike: () => void;
-  listenersCount: number;
   onPairingClick: () => void;
   onSpotifyClick: () => void;
   onSyncDesktop?: () => void;
@@ -28,10 +25,6 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   onTogglePlay,
   playbackSec,
   onSeek,
-  likesCount,
-  isLiked,
-  onToggleLike,
-  listenersCount,
   onPairingClick,
   onSpotifyClick,
   onSyncDesktop,
@@ -42,6 +35,21 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
 }) => {
   const isLight = theme === 'light';
   const [dateTimeStr, setDateTimeStr] = React.useState<string>('');
+  const audioFeatures = currentTrack.audioFeatures;
+
+  const keyNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+  const keyLabel = (features: TrackAudioFeatures) => {
+    if (features.key < 0 || features.key > 11 || features.mode < 0) return 'Key unknown';
+    return `${keyNames[features.key]} ${features.mode === 1 ? 'Major' : 'Minor'}`;
+  };
+
+  const moodLabel = (features: TrackAudioFeatures) => {
+    if (features.valence >= 0.7) return language === 'vi' ? 'Hưng phấn' : 'Euphoric';
+    if (features.valence <= 0.3) return language === 'vi' ? 'Trầm buồn' : 'Melancholy';
+    return language === 'vi' ? 'Cân bằng' : 'Balanced Mood';
+  };
+
+  const coffeePairing = getCoffeePairing(audioFeatures, 'Drip Drop Coffee', language);
 
   React.useEffect(() => {
     const updateDateTime = () => {
@@ -91,7 +99,6 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   })();
 
   const progressPercent = Math.min(100, (playbackSec / currentTrack.durationSec) * 100);
-
   const handleBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -248,6 +255,16 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
                 <span>{spotifySource === 'web' ? 'SPOTIFY WEB' : 'SPOTIFY DESKTOP'}</span>
               </span>
 
+              {typeof audioFeatures?.loudness === 'number' && (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider border border-black shadow-brutal bg-[#FEBC11] text-black"
+                  title={language === 'vi' ? `Độ lớn ước tính: ${audioFeatures.loudness.toFixed(1)} dB` : `Estimated loudness: ${audioFeatures.loudness.toFixed(1)} dB`}
+                >
+                  <i className="fa-solid fa-volume-high text-[10px]"></i>
+                  <span>{audioFeatures.loudness.toFixed(1)} dB</span>
+                </span>
+              )}
+
               {spotifyDesktopStatus && (
                 <span className={`text-[11px] font-mono font-bold px-2 py-0.5 border border-black ${isLight ? 'bg-gray-100 text-gray-800' : 'bg-[#1F1F26] text-emerald-400 border-emerald-500/30'}`}>
                   {spotifyDesktopStatus}
@@ -269,31 +286,39 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
               </p>
             )}
 
-            {/* Social Badges & Coffee Pairing */}
+            {/* Audio DNA Badges & Coffee Pairing */}
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
-              <span
-                className={`inline-flex items-center gap-1.5 text-xs font-bold border-2 border-black px-3 py-1 shadow-brutal ${
-                  isLight ? 'bg-white text-black' : 'bg-[#202026] text-gray-200 border-[#363644]'
-                }`}
-              >
-                <i className={`fa-solid fa-users ${isLight ? 'text-blue-600' : 'text-blue-400'}`}></i>
-                {listenersCount} {language === 'vi' ? 'Monthly listeners' : 'Monthly listeners'}
-              </span>
+              {audioFeatures && (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-[#FEBC11] text-[#0D0D0E]" title={currentTrack.audioFeaturesSource === 'estimated' ? 'Estimated until Spotify audio analysis is available' : 'Spotify tempo, key and mode'}>
+                    <i className="fa-solid fa-music"></i>
+                    {Math.round(audioFeatures.tempo)} BPM • {keyLabel(audioFeatures)}{currentTrack.audioFeaturesSource === 'estimated' ? ' ~' : ''}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-emerald-300 text-black">
+                    <i className="fa-solid fa-face-smile"></i>
+                    {moodLabel(audioFeatures)}
+                  </span>
+                  {audioFeatures.danceability >= 0.7 && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-cyan-300 text-black">
+                      <i className="fa-solid fa-person-running"></i>
+                      {language === 'vi' ? 'Groove cao' : 'High Groove Factor'}
+                    </span>
+                  )}
+                  {audioFeatures.liveness > 0.8 && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-rose-300 text-black">
+                      <i className="fa-solid fa-microphone-lines"></i>
+                      {language === 'vi' ? 'Cảm giác Live Session' : 'Live Session Feel'}
+                    </span>
+                  )}
+                </>
+              )}
 
-              <button
-                id="hero-like-btn"
-                onClick={onToggleLike}
-                className={`inline-flex items-center gap-1.5 text-xs font-bold border-2 border-black px-3 py-1 shadow-brutal transition-all cursor-pointer ${
-                  isLiked
-                    ? 'bg-red-50 text-red-600'
-                    : isLight
-                    ? 'bg-white text-black hover:bg-gray-50'
-                    : 'bg-[#202026] text-gray-200 border-[#363644] hover:border-red-400'
-                }`}
-              >
-                <i className={`fa-solid fa-heart text-red-500 ${isLiked ? 'animate-bounce' : ''}`}></i>{' '}
-                {likesCount} {language === 'vi' ? 'Followers' : 'Followers'}
-              </button>
+              {!audioFeatures && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-[#2A2A30] text-gray-300" title={language === 'vi' ? 'Spotify không cung cấp Audio Features cho bài này' : 'Spotify did not provide Audio Features for this track'}>
+                  <i className="fa-solid fa-circle-info"></i>
+                  {language === 'vi' ? 'Chưa có dữ liệu âm thanh' : 'Audio features unavailable'}
+                </span>
+              )}
 
               <button
                 id="hero-pairing-btn"
@@ -306,7 +331,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
                 title="Nhấp để xem ghi chú hương vị cà phê và âm nhạc"
               >
                 <i className="fa-solid fa-mug-hot text-[#FEBC11]"></i>{' '}
-                {language === 'vi' ? 'Hợp nhất với:' : 'Best with:'} {currentTrack.coffeePairing || 'Cà phê Muối'}
+                {language === 'vi' ? 'Hợp nhất với:' : 'Best with:'} {coffeePairing}
               </button>
             </div>
           </div>
@@ -418,7 +443,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
               {language === 'vi' ? 'Khuyên dùng hôm nay' : "Today's pairing"}
             </span>
             <span className={`text-xs font-black ${isLight ? 'text-black' : 'text-[#FEBC11]'}`}>
-              {currentTrack.coffeePairing || 'Cà phê Muối'} ✦ {currentTrack.genre}
+              {coffeePairing} ✦ {currentTrack.genre}
             </span>
           </div>
 

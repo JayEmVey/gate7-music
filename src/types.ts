@@ -1,3 +1,16 @@
+export interface TrackAudioFeatures {
+  acousticness: number;
+  danceability: number;
+  energy: number;
+  instrumentalness: number;
+  key: number;
+  liveness: number;
+  loudness: number;
+  mode: number;
+  tempo: number;
+  valence: number;
+}
+
 export interface Track {
   id: string;
   spotifyId?: string;
@@ -10,6 +23,8 @@ export interface Track {
   cover?: string;
   coverUrl?: string;
   genre?: string;
+  audioFeatures?: TrackAudioFeatures;
+  audioFeaturesSource?: 'spotify' | 'estimated';
 }
 
 export interface Playlist {

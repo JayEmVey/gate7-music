@@ -19,7 +19,7 @@ import {
   refreshSpotifyUserToken,
   fetchCachedPlaylistTracks,
   fetchSpotifySearchTracks,
-  fetchSpotifyTrackMetrics,
+  fetchSpotifyTrackAudioFeatures,
   transferSpotifyPlayback,
   startSpotifyPlayback,
   pauseSpotifyPlayback,
@@ -52,19 +52,22 @@ function getInitialActivePlaylistId(): string {
     || 'bossa-nova-indie';
 }
 
-function toAppTrack(track: any, fallbackCover = ''): Track {
+function toAppTrack(track: any, fallbackCover = '', previousTrack?: Track): Track {
+  const spotifyId = track.id;
   const durationSec = Math.floor((track.duration_ms || track.durationSec * 1000 || 0) / 1000);
   return {
-    id: `spotify-${track.id}`,
-    spotifyId: track.id,
+    id: `spotify-${spotifyId}`,
+    spotifyId,
     title: track.name || track.title,
     artist: track.artists?.map((artist: { name: string }) => artist.name).join(', ') || track.artist || 'Unknown Artist',
     album: track.album?.name || track.album || 'Spotify Playback',
     duration: `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}`,
     durationSec,
-    coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+    coffeePairing: 'Drip Drop Coffee',
     genre: 'Spotify Web Playback',
     coverUrl: track.album?.images?.[0]?.url || track.coverUrl || fallbackCover,
+    audioFeatures: track.audioFeatures || (previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'spotify' ? previousTrack.audioFeatures : undefined),
+    audioFeaturesSource: track.audioFeatures ? 'spotify' : previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'spotify' ? 'spotify' : undefined,
   };
 }
 
@@ -120,7 +123,6 @@ export default function App() {
   const [playbackSec, setPlaybackSec] = useState<number>(persistedPlayback?.playbackSec ?? 0);
   const [likesCount, setLikesCount] = useState<number>(46);
   const [isLiked, setIsLiked] = useState<boolean>(false);
-  const [listenersCount, setListenersCount] = useState<number>(18);
   const [activePlaylistId, setActivePlaylistId] = useState<string>(getInitialActivePlaylistId);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(getInitialTimeSlots);
   const [requestQueue, setRequestQueue] = useState<RequestTicket[]>(INITIAL_REQUESTS);
@@ -137,7 +139,7 @@ export default function App() {
   const [language, setLanguage] = useState<Language>(getStoredLanguage);
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
   const [spotifyAuthStatus, setSpotifyAuthStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
-  const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('Waiting for Spotify playback');
+  const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('');
   const [spotifySource, setSpotifySource] = useState<'desktop' | 'web'>('desktop');
   const spotifyPlayerRef = useRef<SpotifyWebPlaybackPlayer | null>(null);
   const spotifyDeviceIdRef = useRef<string | null>(null);
@@ -321,11 +323,10 @@ export default function App() {
         isLocalPlaybackActiveRef.current = true;
         setSpotifySource('web');
         pendingRestoreRef.current = null;
-        const liveTrack = toAppTrack(state.track_window.current_track, currentTrack.coverUrl);
+        const liveTrack = toAppTrack(state.track_window.current_track, currentTrack.coverUrl, currentTrack);
         setCurrentTrack(liveTrack);
         setPlaybackSec(Math.floor((state.position || 0) / 1000));
         setIsPlaying(!state.paused);
-        setSpotifyDesktopStatus(`${liveTrack.title} • ${liveTrack.artist}`);
         setTimeSlots((slots) => slots.map((slot) => ({
           ...slot,
           playlists: slot.playlists.map((playlist) => ({
@@ -370,7 +371,7 @@ export default function App() {
         album: live.album,
         durationSec: live.durationSec,
         coverUrl: live.coverUrl || prev.coverUrl,
-      }, prev.coverUrl));
+      }, prev.coverUrl, prev));
       setPlaybackSec(live.progressSec);
       setIsPlaying(live.isPlaying);
     };
@@ -415,10 +416,9 @@ export default function App() {
       const live = await fetchCurrentlyPlayingTrack();
       if (live) {
         setSpotifySource('desktop');
-        setSpotifyDesktopStatus(`${live.title} • ${live.artist}`);
         setPlaybackSec(live.progressSec);
         setIsPlaying(live.isPlaying);
-        setCurrentTrack({
+        setCurrentTrack((previousTrack) => ({
           id: `spotify-${live.trackId}`,
           spotifyId: live.trackId,
           title: live.title,
@@ -426,10 +426,12 @@ export default function App() {
           album: live.album || 'Spotify Playback',
           duration: `${Math.floor(live.durationSec / 60)}:${String(live.durationSec % 60).padStart(2, '0')}`,
           durationSec: live.durationSec,
-          coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+          coffeePairing: 'Drip Drop Coffee',
           genre: 'Spotify Desktop Stream',
-          coverUrl: live.coverUrl || currentTrack.coverUrl,
-        });
+          coverUrl: live.coverUrl || previousTrack.coverUrl,
+          audioFeatures: previousTrack.spotifyId === live.trackId && previousTrack.audioFeaturesSource === 'spotify' ? previousTrack.audioFeatures : undefined,
+          audioFeaturesSource: previousTrack.spotifyId === live.trackId && previousTrack.audioFeaturesSource === 'spotify' ? 'spotify' : undefined,
+        }));
       } else {
         setIsPlaying(false);
         setPlaybackSec(0);
@@ -454,20 +456,23 @@ export default function App() {
   };
 
   useEffect(() => {
-    let cancelled = false;
+    const trackId = currentTrack.spotifyId;
+    if (!trackId) return;
 
-    const refreshPublicMetrics = async () => {
-      if (!currentTrack.spotifyId) return;
-      const metrics = await fetchSpotifyTrackMetrics(currentTrack.spotifyId);
-      if (!metrics || cancelled) return;
-      setLikesCount(metrics.likes);
-      setListenersCount(metrics.listeners);
-    };
+    if (currentTrack.audioFeaturesSource !== 'spotify') {
+      setCurrentTrack((prev) => {
+        if (prev.spotifyId !== trackId || prev.audioFeaturesSource === 'spotify') return prev;
+        const { audioFeatures: _audioFeatures, audioFeaturesSource: _audioFeaturesSource, ...trackWithoutFeatures } = prev;
+        return trackWithoutFeatures;
+      });
+    }
 
-    refreshPublicMetrics();
-    return () => {
-      cancelled = true;
-    };
+    fetchSpotifyTrackAudioFeatures(trackId).then((audioFeatures) => {
+      if (!audioFeatures) return;
+      setCurrentTrack((prev) => prev.spotifyId === trackId
+        ? { ...prev, audioFeatures, audioFeaturesSource: 'spotify' }
+        : prev);
+    });
   }, [currentTrack.spotifyId]);
 
   useEffect(() => {
@@ -571,13 +576,8 @@ export default function App() {
   };
 
   const handleToggleLike = () => {
-    if (isLiked) {
-      setIsLiked(false);
-      setLikesCount((prev) => prev - 1);
-    } else {
-      setIsLiked(true);
-      setLikesCount((prev) => prev + 1);
-    }
+    setIsLiked((prev) => !prev);
+    setLikesCount((prev) => Math.max(0, prev + (isLiked ? -1 : 1)));
   };
 
   const handleSelectPlaylist = (playlist: Playlist) => {
@@ -613,7 +613,7 @@ export default function App() {
         album: track.album,
         duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
         durationSec: track.durationSec,
-        coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+        coffeePairing: 'Drip Drop Coffee',
         coverUrl: track.coverUrl,
       })));
     } catch (error) {
@@ -794,7 +794,7 @@ export default function App() {
             album: track.album,
             duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
             durationSec: track.durationSec,
-            coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+            coffeePairing: 'Drip Drop Coffee',
             coverUrl: track.coverUrl,
           })));
           playlistTrackRequestsRef.current.set(playlist.id, request);
@@ -883,10 +883,6 @@ export default function App() {
           onTogglePlay={handleTogglePlay}
           playbackSec={playbackSec}
           onSeek={handleSeek}
-          likesCount={likesCount}
-          isLiked={isLiked}
-          onToggleLike={handleToggleLike}
-          listenersCount={listenersCount}
           onPairingClick={() => setIsPairingModalOpen(true)}
           onSpotifyClick={() => handleOpenSpotify()}
           onSyncDesktop={handleSyncDesktop}
@@ -1080,6 +1076,7 @@ export default function App() {
         onClose={() => setIsPairingModalOpen(false)}
         onSelectGenre={handleSelectGenreFilter}
         language={language}
+        currentTrack={currentTrack}
       />
     </div>
   );
