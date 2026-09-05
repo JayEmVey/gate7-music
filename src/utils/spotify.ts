@@ -37,10 +37,9 @@ function noteSpotifyRateLimit(response: Response): void {
 
 function getRedirectUri(): string {
   const configuredUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI?.trim();
-  if (configuredUri) return configuredUri;
   // Spotify rejects `localhost` aliases for OAuth callbacks. Local development
   // must use the literal loopback IP; deployed builds use their HTTPS origin.
-  if (import.meta.env.DEV) return 'https://127.0.0.1:3000/';
+  if (import.meta.env.DEV) return configuredUri || 'https://127.0.0.1:3000/';
   return `${window.location.origin}/`;
 }
 
@@ -507,9 +506,21 @@ export async function fetchCachedPlaylistTracks(playlistId: string): Promise<Spo
   const response = await fetch(`/api/playlists/${encodeURIComponent(playlistId)}/tracks`);
 
   if (!response.ok) {
+    const contentType = response.headers.get('content-type') || '';
+    const message = contentType.includes('application/json')
+      ? ((await response.json()) as { error?: string }).error
+      : `Playlist API returned ${response.status} ${response.statusText} instead of JSON`;
     throw new SpotifyApiError(
       response.status,
-      `Could not load cached playlist ${playlistId} (${response.status})`,
+      message || `Could not load cached playlist ${playlistId} (${response.status})`,
+    );
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new SpotifyApiError(
+      response.status,
+      'Playlist API is unavailable in this environment. Please use the deployed app or configure the local API proxy.',
     );
   }
 
