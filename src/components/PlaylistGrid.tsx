@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { TimeSlot, Playlist, Language } from '../types';
+import { DEFAULT_TRACK_COVER } from '../data';
+import { getCurrentSlotKey } from '../utils/spotify';
 import { SpotifyItemTarget } from './SpotifyChooserModal';
 
 interface PlaylistGridProps {
@@ -27,7 +29,26 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
   // By default, only show playlists in the same time frame (slot-current).
   // Clicking "View All" toggles to show all time frames.
   const [showAllTimeSlots, setShowAllTimeSlots] = useState<boolean>(false);
+  const [, forceClockRefresh] = useState(() => Date.now());
   const isLight = theme === 'light';
+
+  React.useEffect(() => {
+    const interval = window.setInterval(() => forceClockRefresh(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const currentSlotId = `slot-${getCurrentSlotKey()}`;
+
+  const getSlotStartMinutes = (slot: TimeSlot) => {
+    const match = slot.timeRange.match(/(\d+)\s*([AP]M)/i);
+    if (!match) return Number.MAX_SAFE_INTEGER;
+    let hour = Number(match[1]) % 12;
+    if (match[2].toUpperCase() === 'PM') hour += 12;
+    return hour * 60;
+  };
+
+  const playlistCover = (playlist: Playlist) =>
+    playlist.coverUrl || playlist.tracks.find((track) => track.coverUrl)?.coverUrl || DEFAULT_TRACK_COVER;
 
   // Filter logic based on search and tag
   const matchesSearch = (pl: Playlist) => {
@@ -56,15 +77,8 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
 
   return (
     <div className="space-y-10">
-      {timeSlots.map((slot) => {
-        const isCurrentSlot = Boolean(slot.isCurrentSlot);
-
-        // When not filtering/searching:
-        // By default show only playlists in the current time frame (Image 2).
-        // If showAllTimeSlots is true, show all time frames (Image 1).
-        if (!showAllTimeSlots && !isCurrentSlot && !searchQuery && !activeFilterTag) {
-          return null;
-        }
+      {(showAllTimeSlots ? [...timeSlots].sort((a, b) => getSlotStartMinutes(a) - getSlotStartMinutes(b)) : timeSlots.filter((slot) => slot.id === currentSlotId)).map((slot) => {
+        const isCurrentSlot = slot.id === currentSlotId;
 
         const matchingPlaylists = slot.playlists.filter(matchesSearch);
         if (matchingPlaylists.length === 0 && (searchQuery || activeFilterTag)) {
@@ -141,8 +155,8 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
             {/* Grid of Playlist Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               {matchingPlaylists.map((playlist) => {
-                const isActive = playlist.id === activePlaylistId;
-                const isNowPlaying = playlist.isNowPlaying;
+                const isActive = isCurrentSlot && playlist.id === activePlaylistId;
+                const isNowPlaying = isCurrentSlot && Boolean(playlist.isNowPlaying);
                 const isHighlighted = playlist.isHighlighted;
 
                 // Active / Now Playing Card (Image 1 / 2)
@@ -163,7 +177,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
 
                       <div>
                         <div className="w-10 h-10 bg-[#FEBC11] border-2 border-black shadow-brutal flex items-center justify-center text-[#0D0D0E] mb-3 group-hover:rotate-6 transition-transform">
-                          <i className={`fa-solid ${playlist.icon} text-base`}></i>
+                          <img src={playlistCover(playlist)} alt="" className="w-full h-full object-cover" />
                         </div>
                         <h4
                           className={`font-black text-sm uppercase truncate transition-colors ${
@@ -207,7 +221,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                     >
                       <div>
                         <div className="w-10 h-10 bg-[#24242E] text-white border-2 border-black flex items-center justify-center font-bold text-base mb-2.5 group-hover:rotate-6 transition-transform">
-                          <i className={`fa-solid ${playlist.icon}`}></i>
+                          <img src={playlistCover(playlist)} alt="" className="w-full h-full object-cover" />
                         </div>
                         <h4 className={`font-black text-sm uppercase truncate ${isLight ? 'text-black' : 'text-white'}`}>
                           {playlist.title}
@@ -249,7 +263,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                           color: playlist.accentColor,
                         }}
                       >
-                        <i className={`fa-solid ${playlist.icon}`}></i>
+                        <img src={playlistCover(playlist)} alt="" className="w-full h-full object-cover" />
                       </div>
                       <h4
                         className={`font-black text-sm uppercase transition-colors truncate ${
@@ -298,7 +312,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
           <button
             onClick={() => {
               setShowAllTimeSlots(false);
-              const currentSlot = timeSlots.find(s => s.isCurrentSlot);
+              const currentSlot = timeSlots.find((slot) => slot.id === currentSlotId);
               if (currentSlot) {
                 const el = document.getElementById(currentSlot.id);
                 if (el) el.scrollIntoView({ behavior: 'smooth' });

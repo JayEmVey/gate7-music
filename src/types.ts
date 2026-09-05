@@ -23,8 +23,10 @@ export interface Playlist {
   duration: string;
   icon: string;
   accentColor: string;
+  coverUrl?: string;
   isNowPlaying?: boolean;
   isHighlighted?: boolean;
+  loadError?: string;
   tracks: Track[];
 }
 
@@ -57,3 +59,26 @@ export type SpeakerZone = 'main' | 'floor2' | 'bar' | 'garden';
 export type Language = 'vi' | 'en';
 
 export type Theme = 'dark' | 'light';
+
+export interface SpotifyWebPlaybackPlayer {
+  addListener: (event: string, callback: (data: any) => void) => boolean;
+  removeListener: (event: string, callback?: (data: any) => void) => boolean;
+  connect: () => Promise<boolean>;
+  disconnect: () => void;
+  activateElement: () => Promise<void>;
+  togglePlay: () => Promise<void>;
+  pause: () => Promise<void>;
+  resume: () => Promise<void>;
+  seek: (positionMs: number) => Promise<void>;
+  setVolume: (volume: number) => Promise<void>;
+  nextTrack: () => Promise<void>;
+  previousTrack: () => Promise<void>;
+  getCurrentState: () => Promise<any | null>;
+}
+
+declare global {
+  interface Window {
+    Spotify?: { Player: new (options: { name: string; getOAuthToken: (callback: (token: string) => void) => void; volume: number }) => SpotifyWebPlaybackPlayer };
+    onSpotifyWebPlaybackSDKReady?: () => void;
+  }
+}

@@ -152,26 +152,40 @@ is the literal loopback IP above. The same value is provided in `.env.example` a
 `VITE_SPOTIFY_REDIRECT_URI`; copy it into `.env.local` if you need a different
 callback URL.
 
-### 5.5 Code Quality & Linting
+### 5.5 Spotify playback and playlists
+
+The browser player requires a Spotify Premium account and the scopes requested by
+this app. Browsers block unprompted audio after a refresh, so playback state is
+restored and resumes when the visitor presses **Play** once; autoplay cannot be
+reliably bypassed.
+
+Spotify Development Mode only returns playlist items for playlists owned by the
+signed-in Spotify account or playlists where that account is a collaborator.
+Replace the IDs in `public/music/playlists.json` with playlists owned by the
+account used to sign in (or make that account a collaborator). Editorial/public
+Spotify playlist IDs can still be displayed and opened in Spotify, but their
+track lists are unavailable through this API mode.
+
+### 5.6 Code Quality & Linting
 Run TypeScript checks to verify type safety and ensure no compilation errors:
 ```bash
 npm run lint
 ```
 
-### 5.6 Production Build
+### 5.7 Production Build
 Compile the application into static production assets:
 ```bash
 npm run build
 ```
 Compiled static assets are generated in the `dist/` directory.
 
-### 5.6 Previewing the Production Build
+### 5.8 Previewing the Production Build
 Preview the compiled production bundle locally:
 ```bash
 npm run preview
 ```
 
-### 5.7 Automated GitHub Pages Deployment (CI/CD)
+### 5.9 Automated GitHub Pages Deployment (CI/CD)
 The project includes a fully automated GitHub Actions deployment pipeline configured in `/.github/workflows/deploy.yml`:
 
 - **Automatic Trigger on Push**: Any commit or sync pushed to the `master` branch automatically triggers the workflow:
@@ -190,7 +204,7 @@ The project includes a fully automated GitHub Actions deployment pipeline config
   - Under **Build and deployment** > **Source**, ensure **GitHub Actions** is selected.
   - The custom domain is set to `music.gate7.vn` with DNS pointing to GitHub Pages.
 
-### 5.8 Container / Cloud Deployment Alternative
+### 5.10 Container / Cloud Deployment Alternative
 This project can also be deployed to containerized platforms (e.g., Google Cloud Run, Vercel, Netlify, or Docker):
 - The production build outputs directly to `dist/`.
 - The local server configuration defaults to port `3000`.

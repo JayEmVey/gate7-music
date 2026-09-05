@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { SoundstageHero } from './components/SoundstageHero';
 import { PlaylistGrid } from './components/PlaylistGrid';
@@ -8,26 +8,104 @@ import { RequestModal } from './components/RequestModal';
 import { PlaylistDetailModal } from './components/PlaylistDetailModal';
 import { SpotifyChooserModal, SpotifyItemTarget } from './components/SpotifyChooserModal';
 import { PairingGuideModal } from './components/PairingGuideModal';
-import { INITIAL_TRACK, BLOSSOM_TRACK, INITIAL_TIME_SLOTS, INITIAL_REQUESTS, getTrackCover } from './data';
-import { Track, Playlist, TimeSlot, RequestTicket, SpeakerZone, Language, Theme } from './types';
-import { audioEngine } from './utils/audio';
+import { INITIAL_TIME_SLOTS, INITIAL_REQUESTS, getTrackCover } from './data';
+import { Track, Playlist, TimeSlot, RequestTicket, SpeakerZone, Language, Theme, SpotifyWebPlaybackPlayer } from './types';
 import {
   getSpotifyUserAuthUrl,
   checkAndStoreUserTokenFromUrl,
   getSpotifyUserToken,
   fetchCurrentlyPlayingTrack,
+  refreshSpotifyUserToken,
+  fetchSpotifyPlaylistTracks,
+  transferSpotifyPlayback,
+  startSpotifyPlayback,
+  pauseSpotifyPlayback,
+  seekSpotifyPlayback,
+  skipToNextSpotifyTrack,
+  skipToPreviousSpotifyTrack,
+  setSpotifyRepeatMode,
+  setSpotifyShuffle,
+  setSpotifyVolume,
+  getCurrentSlotKey,
+  SPOTIFY_SCOPE_VERSION,
 } from './utils/spotify';
 
+function getCurrentTimeSlotId(): string {
+  return `slot-${getCurrentSlotKey()}`;
+}
+
+function getInitialTimeSlots(): TimeSlot[] {
+  const currentSlotId = getCurrentTimeSlotId();
+  return INITIAL_TIME_SLOTS.map((slot) => ({
+    ...slot,
+    isCurrentSlot: slot.id === currentSlotId,
+  }));
+}
+
+function getInitialActivePlaylistId(): string {
+  const currentSlot = getInitialTimeSlots().find((slot) => slot.isCurrentSlot);
+  return currentSlot?.playlists.find((playlist) => playlist.isNowPlaying)?.id
+    || currentSlot?.playlists[0]?.id
+    || 'bossa-nova-indie';
+}
+
+function toAppTrack(track: any, fallbackCover = ''): Track {
+  const durationSec = Math.floor((track.duration_ms || track.durationSec * 1000 || 0) / 1000);
+  return {
+    id: `spotify-${track.id}`,
+    spotifyId: track.id,
+    title: track.name || track.title,
+    artist: track.artists?.map((artist: { name: string }) => artist.name).join(', ') || track.artist || 'Unknown Artist',
+    album: track.album?.name || track.album || 'Spotify Playback',
+    duration: `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}`,
+    durationSec,
+    coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+    genre: 'Spotify Web Playback',
+    coverUrl: track.album?.images?.[0]?.url || track.coverUrl || fallbackCover,
+  };
+}
+
+const EMPTY_SPOTIFY_TRACK: Track = {
+  id: 'spotify-empty',
+  title: 'No Spotify track playing',
+  artist: 'Connect a Spotify playback device',
+  album: 'Spotify Web Playback',
+  duration: '00:00',
+  durationSec: 0,
+};
+
+const PLAYBACK_STATE_KEY = 'gate7_playback_state';
+
+interface PersistedPlaybackState {
+  track: Track;
+  playbackSec: number;
+  isPlaying: boolean;
+}
+
+function getPersistedPlaybackState(): PersistedPlaybackState | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const value = localStorage.getItem(PLAYBACK_STATE_KEY);
+    if (!value) return null;
+    const state = JSON.parse(value) as PersistedPlaybackState;
+    if (!state.track?.spotifyId) return null;
+    return state;
+  } catch {
+    localStorage.removeItem(PLAYBACK_STATE_KEY);
+    return null;
+  }
+}
+
 export default function App() {
-  // Initialize with blossom by ai sayuri as user is playing it on Spotify Desktop
-  const [currentTrack, setCurrentTrack] = useState<Track>(BLOSSOM_TRACK);
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [playbackSec, setPlaybackSec] = useState<number>(45);
+  const persistedPlayback = getPersistedPlaybackState();
+  const [currentTrack, setCurrentTrack] = useState<Track>(persistedPlayback?.track || EMPTY_SPOTIFY_TRACK);
+  const [isPlaying, setIsPlaying] = useState<boolean>(persistedPlayback?.isPlaying ?? false);
+  const [playbackSec, setPlaybackSec] = useState<number>(persistedPlayback?.playbackSec ?? 0);
   const [likesCount, setLikesCount] = useState<number>(46);
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [listenersCount, setListenersCount] = useState<number>(18);
-  const [activePlaylistId, setActivePlaylistId] = useState<string>('bossa-nova-indie');
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(INITIAL_TIME_SLOTS);
+  const [activePlaylistId, setActivePlaylistId] = useState<string>(getInitialActivePlaylistId);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(getInitialTimeSlots);
   const [requestQueue, setRequestQueue] = useState<RequestTicket[]>(INITIAL_REQUESTS);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
@@ -38,14 +116,42 @@ export default function App() {
   const [language, setLanguage] = useState<Language>('vi');
   const [theme, setTheme] = useState<Theme>('dark');
   const [spotifyAuthStatus, setSpotifyAuthStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
-  const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('blossom • ai sayuri (Synced)');
+  const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('Waiting for Spotify playback');
+  const spotifyPlayerRef = useRef<SpotifyWebPlaybackPlayer | null>(null);
+  const spotifyDeviceIdRef = useRef<string | null>(null);
+  const loadedPlaylistIdsRef = useRef(new Set<string>());
+  const hydratingPlaylistIdsRef = useRef(new Set<string>());
+  const failedPlaylistIdsRef = useRef(new Set<string>());
+  const pendingRestoreRef = useRef<PersistedPlaybackState | null>(persistedPlayback);
+  const isLocalPlaybackActiveRef = useRef(false);
+  const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
+
+  useEffect(() => {
+    const updateCurrentSlot = () => {
+      const currentSlotId = getCurrentTimeSlotId();
+      setTimeSlots((slots) => slots.map((slot) => ({
+        ...slot,
+        isCurrentSlot: slot.id === currentSlotId,
+      })));
+    };
+
+    updateCurrentSlot();
+    const interval = window.setInterval(updateCurrentSlot, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   // Load playlists from JSON
   useEffect(() => {
+    loadedPlaylistIdsRef.current.clear();
+    hydratingPlaylistIdsRef.current.clear();
+    failedPlaylistIdsRef.current.clear();
     fetch('/music/playlists.json')
       .then((res) => res.json())
       .then((data) => {
         const langData = data[language === 'vi' ? 'vn' : 'us'] || data['us'];
+        loadedPlaylistIdsRef.current.clear();
+        hydratingPlaylistIdsRef.current.clear();
+        failedPlaylistIdsRef.current.clear();
 
         setTimeSlots((prev) => {
           return prev.map((slot) => {
@@ -67,13 +173,14 @@ export default function App() {
                   slotId: slot.id,
                   slotName: existingPl?.slotName || slot.timeRange,
                   description: existingPl?.description || 'Tuyển chọn từ Spotify.',
-                  trackCount: existingPl?.trackCount || 20,
+                  trackCount: existingPl?.trackCount || 0,
                   duration: existingPl?.duration || '1H 30M',
                   icon: existingPl?.icon || 'fa-music',
                   accentColor: existingPl?.accentColor || slot.accentColor,
+                  coverUrl: jsonPl.coverUrl || existingPl?.coverUrl || existingPl?.tracks.find((track) => track.coverUrl)?.coverUrl,
                   tracks: existingPl?.tracks || [],
-                  isHighlighted: existingPl?.isHighlighted || false,
-                  isNowPlaying: existingPl?.isNowPlaying || false,
+                  isHighlighted: existingPl?.spotifyId === jsonPl.id && Boolean(existingPl.isHighlighted),
+                  isNowPlaying: existingPl?.spotifyId === jsonPl.id && Boolean(existingPl.isNowPlaying),
                 };
               });
               return { ...slot, playlists: newPlaylists };
@@ -84,6 +191,69 @@ export default function App() {
       })
       .catch((err) => console.error('Failed to load playlists.json:', err));
   }, [language]);
+
+  useEffect(() => {
+    if (spotifyAuthStatus !== 'connected') return;
+    const playlists = timeSlots
+      .flatMap((slot) => slot.playlists)
+      .filter((playlist) => playlist.spotifyId && !loadedPlaylistIdsRef.current.has(playlist.id) && !hydratingPlaylistIdsRef.current.has(playlist.id) && !failedPlaylistIdsRef.current.has(playlist.id));
+    if (playlists.length === 0) return;
+    playlists.forEach((playlist) => hydratingPlaylistIdsRef.current.add(playlist.id));
+
+    // Hydrate one playlist at a time so the catalog does not burst through
+    // Spotify's rate limit during startup.
+    const hydrate = async (playlist: Playlist) => {
+      try {
+        const spotifyTracks = await fetchSpotifyPlaylistTracks(playlist.spotifyId!, playlist.title);
+        loadedPlaylistIdsRef.current.add(playlist.id);
+        return {
+          playlist,
+          tracks: spotifyTracks.map((track) => ({
+            id: `spotify-${track.id}`,
+            spotifyId: track.id,
+            title: track.title,
+            artist: track.artist,
+            album: track.album,
+            duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
+            durationSec: track.durationSec,
+            coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+            coverUrl: track.coverUrl,
+          })),
+        };
+      } catch (error) {
+        console.warn(`Could not hydrate Spotify playlist ${playlist.spotifyId}:`, error);
+        failedPlaylistIdsRef.current.add(playlist.id);
+        return null;
+      } finally {
+        hydratingPlaylistIdsRef.current.delete(playlist.id);
+      }
+    };
+    const hydrateInBatches = async () => {
+      const hydrated: Array<{ playlist: Playlist; tracks: Track[] } | null> = [];
+      for (const playlist of playlists) {
+        hydrated.push(await hydrate(playlist));
+      }
+      const successful = hydrated.filter((result): result is { playlist: Playlist; tracks: Track[] } => result !== null);
+      const byId = new Map<string, { playlist: Playlist; tracks: Track[] }>(
+        successful.map(({ playlist, tracks }) => [playlist.id, { playlist, tracks }]),
+      );
+      setTimeSlots((slots) => slots.map((slot) => ({
+        ...slot,
+        playlists: slot.playlists.map((playlist) => {
+          const result = byId.get(playlist.id);
+          if (!result) return playlist;
+          return {
+            ...playlist,
+            tracks: result.tracks,
+            trackCount: result.tracks.length,
+            coverUrl: playlist.coverUrl || result.tracks.find((track) => track.coverUrl)?.coverUrl,
+            isNowPlaying: result.tracks.some((track) => track.spotifyId === currentTrack.spotifyId),
+          };
+        }),
+      })));
+    };
+    void hydrateInBatches();
+  }, [spotifyAuthStatus, timeSlots, currentTrack.spotifyId]);
 
   // Spotify Chooser Modal state
   const [spotifyChooserTarget, setSpotifyChooserTarget] = useState<SpotifyItemTarget | null>(null);
@@ -97,12 +267,20 @@ export default function App() {
   const [selectedPlaylistForModal, setSelectedPlaylistForModal] = useState<Playlist | null>(null);
   const [isPairingModalOpen, setIsPairingModalOpen] = useState<boolean>(false);
 
-  // Check for the Spotify OAuth callback in either the main window or popup.
+  // Establish a user session on page load. PKCE keeps the client secret out of the browser.
   useEffect(() => {
-    checkAndStoreUserTokenFromUrl().then((userToken) => {
-      if (userToken) {
+    checkAndStoreUserTokenFromUrl().then(async (userToken) => {
+      if (localStorage.getItem('spotify_scope_version') !== SPOTIFY_SCOPE_VERSION && !userToken) {
+        localStorage.removeItem('spotify_user_token');
+        localStorage.removeItem('spotify_user_token_expires_at');
+        localStorage.removeItem('spotify_user_refresh_token');
+      }
+      const cachedToken = userToken || getSpotifyUserToken() || await refreshSpotifyUserToken();
+      if (cachedToken) {
         setSpotifyAuthStatus('connected');
-        console.log('✓ Spotify User Account successfully connected for live playback sync.');
+      } else {
+        const authUrl = await getSpotifyUserAuthUrl();
+        window.location.assign(authUrl);
       }
     });
   }, []);
@@ -121,49 +299,124 @@ export default function App() {
     return () => window.removeEventListener('message', onSpotifyAuthComplete);
   }, []);
 
-  // Live Polling for Spotify Desktop Playback
+  // Connect the Web Playback SDK and mirror its state into the page.
   useEffect(() => {
-    let isMounted = true;
+    if (spotifyAuthStatus !== 'connected') return;
+    let script: HTMLScriptElement | null = null;
+    let mounted = true;
+    const initializePlayer = () => {
+      if (!mounted || !window.Spotify || spotifyPlayerRef.current) return;
+      const player = new window.Spotify.Player({
+        name: 'Gate 7 Soundstage',
+        getOAuthToken: async (callback) => {
+          const token = getSpotifyUserToken() || await refreshSpotifyUserToken();
+          if (token) callback(token);
+        },
+        volume: volume / 100,
+      });
+      spotifyPlayerRef.current = player;
+      player.addListener('ready', async ({ device_id }) => {
+        spotifyDeviceIdRef.current = device_id;
+        setSpotifyPlayerReady(true);
+        const saved = getPersistedPlaybackState();
+        if (saved) {
+          setCurrentTrack(saved.track);
+          setPlaybackSec(saved.playbackSec);
+          setIsPlaying(false);
+          setSpotifyDesktopStatus('Spotify player ready — press Play to resume');
+        } else {
+          setSpotifyDesktopStatus('Spotify player ready — select a track or press Play');
+        }
+      });
+      player.addListener('not_ready', () => {
+        isLocalPlaybackActiveRef.current = false;
+        setSpotifyPlayerReady(false);
+      });
+      player.addListener('initialization_error', ({ message }) => setSpotifyDesktopStatus(`Spotify player unavailable: ${message}`));
+      player.addListener('authentication_error', ({ message }) => {
+        setSpotifyAuthStatus('failed');
+        setSpotifyDesktopStatus(`Spotify authentication failed: ${message}`);
+      });
+      player.addListener('account_error', ({ message }) => {
+        setSpotifyAuthStatus('failed');
+        setSpotifyDesktopStatus(`Spotify Premium is required: ${message}`);
+      });
+      player.addListener('autoplay_failed', () => setSpotifyDesktopStatus('Press Play to allow Spotify audio in this browser'));
+      player.addListener('playback_error', ({ message }) => setSpotifyDesktopStatus(`Spotify playback error: ${message}`));
+      player.addListener('player_state_changed', (state) => {
+        if (!state?.track_window?.current_track) {
+          isLocalPlaybackActiveRef.current = false;
+          return;
+        }
+        isLocalPlaybackActiveRef.current = true;
+        pendingRestoreRef.current = null;
+        const liveTrack = toAppTrack(state.track_window.current_track, currentTrack.coverUrl);
+        setCurrentTrack(liveTrack);
+        setPlaybackSec(Math.floor((state.position || 0) / 1000));
+        setIsPlaying(!state.paused);
+        setSpotifyDesktopStatus(`${liveTrack.title} • ${liveTrack.artist}`);
+        setTimeSlots((slots) => slots.map((slot) => ({
+          ...slot,
+          playlists: slot.playlists.map((playlist) => ({
+            ...playlist,
+            isNowPlaying: playlist.tracks.some((track) => track.spotifyId === liveTrack.spotifyId),
+          })),
+        })));
+      });
+      player.connect();
+    };
 
-    const checkLivePlayback = async () => {
-      const userToken = getSpotifyUserToken();
-      if (!userToken) return;
+    if (window.Spotify) {
+      initializePlayer();
+    } else {
+      script = document.createElement('script');
+      script.src = 'https://sdk.scdn.co/spotify-player.js';
+      script.async = true;
+      window.onSpotifyWebPlaybackSDKReady = initializePlayer;
+      document.body.appendChild(script);
+    }
+    return () => {
+      mounted = false;
+      window.onSpotifyWebPlaybackSDKReady = undefined;
+      script?.remove();
+      spotifyPlayerRef.current?.disconnect();
+      spotifyPlayerRef.current = null;
+    };
+  }, [spotifyAuthStatus]);
 
+  // Keep remote metadata fresh until the browser player has taken ownership.
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (isLocalPlaybackActiveRef.current) return;
       const live = await fetchCurrentlyPlayingTrack();
-      if (!live || !isMounted) return;
-
-      setSpotifyDesktopStatus(`${live.title} • ${live.artist}`);
+      if (!live) return;
+      setCurrentTrack((prev) => toAppTrack({
+        id: live.trackId,
+        name: live.title,
+        artist: live.artist,
+        album: live.album,
+        durationSec: live.durationSec,
+        coverUrl: live.coverUrl || prev.coverUrl,
+      }, prev.coverUrl));
       setPlaybackSec(live.progressSec);
       setIsPlaying(live.isPlaying);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [spotifyPlayerReady]);
 
-      setCurrentTrack((prev) => {
-        if (prev.title !== live.title || prev.artist !== live.artist) {
-          return {
-            id: `spotify-${live.trackId}`,
-            spotifyId: live.trackId,
-            title: live.title,
-            artist: live.artist,
-            album: live.album || 'Spotify Playback',
-            duration: `${Math.floor(live.durationSec / 60)}:${String(live.durationSec % 60).padStart(2, '0')}`,
-            durationSec: live.durationSec,
-            coffeePairing: prev.coffeePairing || 'Cold Brew Tonic & Cà phê Cốt Dừa',
-            genre: 'Spotify Desktop Stream',
-            coverUrl: live.coverUrl || prev.coverUrl,
-          };
-        }
-        return prev;
-      });
-    };
-
-    // Run initial check and then poll every 4 seconds
-    checkLivePlayback();
-    const interval = setInterval(checkLivePlayback, 4000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
+  // The SDK may emit state events at irregular intervals. Poll the local player
+  // position while it owns playback so the progress display remains authoritative.
+  useEffect(() => {
+    if (!spotifyPlayerReady) return;
+    const interval = window.setInterval(async () => {
+      const state = await spotifyPlayerRef.current?.getCurrentState();
+      if (!state) return;
+      isLocalPlaybackActiveRef.current = true;
+      setPlaybackSec(Math.floor((state.position || 0) / 1000));
+      setIsPlaying(!state.paused);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [spotifyPlayerReady]);
 
   // Desktop Sync Handler: user clicks "Đồng bộ Desktop"
   const handleSyncDesktop = useCallback(async () => {
@@ -177,11 +430,9 @@ export default function App() {
         console.warn('Spotify login popup was blocked by the browser.');
         return;
       }
-      // Set to blossom immediately
-      setCurrentTrack(BLOSSOM_TRACK);
-      setPlaybackSec(45);
-      setIsPlaying(true);
-      setSpotifyDesktopStatus('blossom • ai sayuri (Desktop Synced)');
+      setIsPlaying(false);
+      setPlaybackSec(0);
+      setSpotifyDesktopStatus('Spotify login required');
     } else {
       const live = await fetchCurrentlyPlayingTrack();
       if (live) {
@@ -198,14 +449,12 @@ export default function App() {
           durationSec: live.durationSec,
           coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
           genre: 'Spotify Desktop Stream',
-          coverUrl: live.coverUrl || BLOSSOM_TRACK.coverUrl,
+          coverUrl: live.coverUrl || currentTrack.coverUrl,
         });
       } else {
-        // Fallback to blossom
-        setCurrentTrack(BLOSSOM_TRACK);
-        setPlaybackSec(45);
-        setIsPlaying(true);
-        setSpotifyDesktopStatus('blossom • ai sayuri (Desktop Synced)');
+        setIsPlaying(false);
+        setPlaybackSec(0);
+        setSpotifyDesktopStatus('No Spotify track is currently playing');
       }
     }
   }, []);
@@ -225,47 +474,101 @@ export default function App() {
     }
   };
 
-  // Playback timer loop
   useEffect(() => {
-    let interval: any = null;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setPlaybackSec((prev) => {
-          if (prev >= currentTrack.durationSec) {
-            return 0; // loop or reset
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isPlaying, currentTrack.durationSec]);
-
-  // Audio Engine sync
-  useEffect(() => {
-    if (isPlaying) {
-      audioEngine.start();
-    } else {
-      audioEngine.stop();
-    }
-    return () => {
-      audioEngine.stop();
-    };
-  }, [isPlaying]);
+    if (!currentTrack.spotifyId) return;
+    localStorage.setItem(PLAYBACK_STATE_KEY, JSON.stringify({
+      track: currentTrack,
+      playbackSec,
+      isPlaying,
+    } satisfies PersistedPlaybackState));
+  }, [currentTrack, playbackSec, isPlaying]);
 
   useEffect(() => {
-    audioEngine.setVolume(volume);
+    spotifyPlayerRef.current?.setVolume(volume / 100);
+    if (!getSpotifyUserToken()) return;
+    setSpotifyVolume(volume, spotifyDeviceIdRef.current || undefined).catch((error) => {
+      console.warn('Could not set Spotify playback volume:', error);
+    });
   }, [volume]);
 
   // Handlers
-  const handleTogglePlay = () => {
-    setIsPlaying((prev) => !prev);
+  const handleTogglePlay = async () => {
+    const player = spotifyPlayerRef.current;
+    if (!spotifyPlayerReady || !player) {
+      try {
+        const changed = isPlaying
+          ? await pauseSpotifyPlayback(spotifyDeviceIdRef.current || undefined)
+          : await startSpotifyPlayback(spotifyDeviceIdRef.current || undefined, currentTrack.spotifyId
+            ? { uris: [`spotify:track:${currentTrack.spotifyId}`] }
+            : undefined);
+        if (!changed) throw new Error('Spotify rejected the playback request');
+        setIsPlaying(!isPlaying);
+      } catch (error) {
+        console.warn('Could not change remote Spotify playback:', error);
+        setSpotifyDesktopStatus('Spotify player is still connecting');
+      }
+      return;
+    }
+
+    try {
+      await player.activateElement();
+      const state = await player.getCurrentState();
+      if (state) {
+        await player.togglePlay();
+        return;
+      }
+
+      const deviceId = spotifyDeviceIdRef.current;
+      if (!deviceId) throw new Error('Spotify browser device is unavailable');
+      const saved = pendingRestoreRef.current;
+      const transferred = await transferSpotifyPlayback(deviceId, false);
+      if (!transferred) throw new Error('Spotify could not transfer playback to this browser');
+
+      if (saved?.isPlaying && saved.track.spotifyId) {
+        const resumed = await startSpotifyPlayback(deviceId, {
+          uris: [`spotify:track:${saved.track.spotifyId}`],
+        });
+        if (!resumed) throw new Error('Spotify could not resume the saved track');
+        if (saved.playbackSec > 0) {
+          await seekSpotifyPlayback(saved.playbackSec * 1000, deviceId);
+        }
+        pendingRestoreRef.current = null;
+      } else {
+        await startSpotifyPlayback(deviceId);
+      }
+    } catch (error) {
+      if (!spotifyPlayerReady || !spotifyPlayerRef.current) {
+        try {
+          const changed = isPlaying
+            ? await pauseSpotifyPlayback(spotifyDeviceIdRef.current || undefined)
+            : await startSpotifyPlayback(spotifyDeviceIdRef.current || undefined, currentTrack.spotifyId
+              ? { uris: [`spotify:track:${currentTrack.spotifyId}`] }
+              : undefined);
+          if (changed) {
+            setIsPlaying(!isPlaying);
+            return;
+          }
+        } catch (remoteError) {
+          console.warn('Could not change remote Spotify playback:', remoteError);
+        }
+      }
+      console.warn('Could not toggle Spotify playback:', error);
+      setSpotifyDesktopStatus('Spotify playback could not be changed');
+    }
   };
 
-  const handleSeek = (sec: number) => {
-    setPlaybackSec(sec);
+  const handleSeek = async (sec: number) => {
+    try {
+      if (spotifyPlayerRef.current && spotifyPlayerReady) {
+        await spotifyPlayerRef.current.seek(sec * 1000);
+      } else {
+        const changed = await seekSpotifyPlayback(sec * 1000, spotifyDeviceIdRef.current || undefined);
+        if (!changed) throw new Error('Spotify rejected the seek request');
+      }
+      setPlaybackSec(sec);
+    } catch (error) {
+      console.warn('Could not seek Spotify playback:', error);
+    }
   };
 
   const handleToggleLike = () => {
@@ -280,34 +583,103 @@ export default function App() {
 
   const handleSelectPlaylist = (playlist: Playlist) => {
     setActivePlaylistId(playlist.id);
-    if (playlist.tracks.length > 0) {
-      const firstTrack = playlist.tracks[0];
-      setCurrentTrack(firstTrack);
-      setPlaybackSec(0);
-      setIsPlaying(true);
-    }
+    loadPlaylistTracks(playlist);
   };
 
-  const handlePlaySpecificTrack = (track: Track, playlist: Playlist) => {
+  const handlePlaySpecificTrack = async (track: Track, playlist: Playlist) => {
     setActivePlaylistId(playlist.id);
-    setCurrentTrack(track);
-    setPlaybackSec(0);
-    setIsPlaying(true);
+    const player = spotifyPlayerRef.current;
+    if (player && spotifyDeviceIdRef.current && track.spotifyId) {
+      await player.activateElement();
+      const transferred = await transferSpotifyPlayback(spotifyDeviceIdRef.current, false);
+      if (!transferred) {
+        setSpotifyDesktopStatus('Spotify browser player is unavailable');
+        return;
+      }
+      const started = await startSpotifyPlayback(spotifyDeviceIdRef.current, {
+        uris: [`spotify:track:${track.spotifyId}`],
+      });
+      if (!started) {
+        setSpotifyDesktopStatus('Spotify rejected this playback request');
+        return;
+      }
+      pendingRestoreRef.current = null;
+      return;
+    }
+    if (track.spotifyId) {
+      try {
+        const started = await startSpotifyPlayback(spotifyDeviceIdRef.current || undefined, {
+          uris: [`spotify:track:${track.spotifyId}`],
+        });
+        if (!started) throw new Error('Spotify rejected this playback request');
+        setCurrentTrack(track);
+        setPlaybackSec(0);
+        setIsPlaying(true);
+        return;
+      } catch (error) {
+        console.warn('Could not start selected Spotify track:', error);
+      }
+    }
+    setSpotifyDesktopStatus('Spotify player is still connecting');
   };
 
-  const handleNextTrack = () => {
+  const handleNextTrack = async () => {
+    if (spotifyPlayerReady && spotifyPlayerRef.current) {
+      try {
+        await spotifyPlayerRef.current.activateElement();
+        await spotifyPlayerRef.current.nextTrack();
+      } catch (error) {
+        console.warn('Could not skip to next Spotify track:', error);
+        setSpotifyDesktopStatus('Spotify could not skip to the next track');
+      }
+      return;
+    }
+    if (getSpotifyUserToken()) {
+      try {
+        const skipped = await skipToNextSpotifyTrack(spotifyDeviceIdRef.current || undefined);
+        if (!skipped) throw new Error('Spotify rejected the next-track request');
+        return;
+      } catch (error) {
+        console.warn('Could not skip to next Spotify track:', error);
+        setSpotifyDesktopStatus('Spotify could not skip to the next track');
+        return;
+      }
+    }
     // Find next track in active playlist or fallback
     const allTracks = timeSlots.flatMap((slot) => slot.playlists.flatMap((pl) => pl.tracks));
     const currentIndex = allTracks.findIndex((t) => t.id === currentTrack.id);
+    if (allTracks.length === 0) return;
     const nextIndex = (currentIndex + 1) % allTracks.length;
     setCurrentTrack(allTracks[nextIndex]);
     setPlaybackSec(0);
     setIsPlaying(true);
   };
 
-  const handlePrevTrack = () => {
+  const handlePrevTrack = async () => {
+    if (spotifyPlayerReady && spotifyPlayerRef.current) {
+      try {
+        await spotifyPlayerRef.current.activateElement();
+        await spotifyPlayerRef.current.previousTrack();
+      } catch (error) {
+        console.warn('Could not skip to previous Spotify track:', error);
+        setSpotifyDesktopStatus('Spotify could not skip to the previous track');
+      }
+      return;
+    }
+    if (getSpotifyUserToken()) {
+      try {
+        const skipped = await skipToPreviousSpotifyTrack(spotifyDeviceIdRef.current || undefined);
+        if (!skipped) throw new Error('Spotify rejected the previous-track request');
+        return;
+      } catch (error) {
+        console.warn('Could not skip to previous Spotify track:', error);
+        setSpotifyDesktopStatus('Spotify could not skip to the previous track');
+        return;
+      }
+    }
     const allTracks = timeSlots.flatMap((slot) => slot.playlists.flatMap((pl) => pl.tracks));
     const currentIndex = allTracks.findIndex((t) => t.id === currentTrack.id);
+    if (allTracks.length === 0) return;
     const prevIndex = (currentIndex - 1 + allTracks.length) % allTracks.length;
     setCurrentTrack(allTracks[prevIndex]);
     setPlaybackSec(0);
@@ -351,6 +723,68 @@ export default function App() {
       setActiveFilterTag('#Acoustic');
     } else {
       setActiveFilterTag('#DeepWork');
+    }
+  };
+
+  const loadPlaylistTracks = async (playlist: Playlist) => {
+    if (!playlist.spotifyId || loadedPlaylistIdsRef.current.has(playlist.id)) {
+      setSelectedPlaylistForModal(playlist);
+      return;
+    }
+    try {
+      const spotifyTracks = await fetchSpotifyPlaylistTracks(playlist.spotifyId, playlist.title);
+      const tracks: Track[] = spotifyTracks.map((track) => ({
+        id: `spotify-${track.id}`,
+        spotifyId: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
+        durationSec: track.durationSec,
+        coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+        coverUrl: track.coverUrl,
+      }));
+      loadedPlaylistIdsRef.current.add(playlist.id);
+      const updatedPlaylist = {
+        ...playlist,
+        tracks,
+        trackCount: tracks.length,
+        coverUrl: playlist.coverUrl || tracks.find((track) => track.coverUrl)?.coverUrl,
+        isNowPlaying: tracks.some((track) => track.spotifyId === currentTrack.spotifyId),
+      };
+      setTimeSlots((slots) => slots.map((slot) => ({
+        ...slot,
+        playlists: slot.playlists.map((item) => item.id === playlist.id ? updatedPlaylist : item),
+      })));
+      setSelectedPlaylistForModal(updatedPlaylist);
+    } catch (error) {
+      console.warn('Could not load Spotify playlist tracks:', error);
+      setSelectedPlaylistForModal({
+        ...playlist,
+        loadError: error instanceof Error ? error.message : 'Spotify could not load this playlist.',
+      });
+    }
+  };
+
+  const handleToggleShuffle = async () => {
+    const next = !isShuffle;
+    try {
+      const changed = await setSpotifyShuffle(next, spotifyDeviceIdRef.current || undefined);
+      if (!changed) throw new Error('Spotify rejected the shuffle request');
+      setIsShuffle(next);
+    } catch (error) {
+      console.warn('Could not change Spotify shuffle:', error);
+    }
+  };
+
+  const handleToggleRepeat = async () => {
+    const next = !isRepeat;
+    try {
+      const changed = await setSpotifyRepeatMode(next ? 'context' : 'off', spotifyDeviceIdRef.current || undefined);
+      if (!changed) throw new Error('Spotify rejected the repeat request');
+      setIsRepeat(next);
+    } catch (error) {
+      console.warn('Could not change Spotify repeat mode:', error);
     }
   };
 
@@ -402,10 +836,10 @@ export default function App() {
             <PlaylistGrid
               timeSlots={timeSlots}
               activePlaylistId={activePlaylistId}
-              onSelectPlaylist={(pl) => setSelectedPlaylistForModal(pl)}
+              onSelectPlaylist={handleSelectPlaylist}
               onViewAllSlot={(slot) => {
                 if (slot.playlists.length > 0) {
-                  setSelectedPlaylistForModal(slot.playlists[0]);
+                  handleSelectPlaylist(slot.playlists[0]);
                 }
               }}
               onOpenSpotify={(target) => handleOpenSpotify(target)}
@@ -493,9 +927,9 @@ export default function App() {
         isLiked={isLiked}
         onToggleLike={handleToggleLike}
         isShuffle={isShuffle}
-        onToggleShuffle={() => setIsShuffle(!isShuffle)}
+        onToggleShuffle={handleToggleShuffle}
         isRepeat={isRepeat}
-        onToggleRepeat={() => setIsRepeat(!isRepeat)}
+        onToggleRepeat={handleToggleRepeat}
         speakerZone={speakerZone}
         onSelectSpeakerZone={setSpeakerZone}
         volume={volume}

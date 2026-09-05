@@ -1,6 +1,6 @@
 import React from 'react';
 import { Playlist, Track, Language } from '../types';
-import { getTrackCover } from '../data';
+import { DEFAULT_TRACK_COVER, getTrackCover } from '../data';
 import { SpotifyItemTarget } from './SpotifyChooserModal';
 
 interface PlaylistDetailModalProps {
@@ -26,6 +26,8 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
 }) => {
   if (!isOpen || !playlist) return null;
 
+  const playlistCover = playlist.coverUrl || playlist.tracks.find((track) => track.coverUrl)?.coverUrl || DEFAULT_TRACK_COVER;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
       <div
@@ -43,10 +45,9 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
         {/* Playlist Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 border-b-2 border-[#2E2E38] pb-6 mb-6">
           <div
-            className="w-20 h-20 border-2 border-black flex items-center justify-center text-3xl shadow-brutal shrink-0"
-            style={{ backgroundColor: playlist.accentColor, color: '#0D0D0E' }}
+            className="w-20 h-20 border-2 border-black shadow-brutal shrink-0 overflow-hidden"
           >
-            <i className={`fa-solid ${playlist.icon}`}></i>
+            <img src={playlistCover} alt={playlist.title} className="w-full h-full object-cover" />
           </div>
 
           <div className="space-y-1">
@@ -88,11 +89,22 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
 
         {/* Tracklist */}
         <div className="space-y-2">
+          {playlist.loadError && (
+            <div className="border-2 border-amber-400 bg-amber-950/40 px-3 py-2 text-xs font-medium text-amber-100">
+              {playlist.loadError}
+            </div>
+          )}
           <div className="flex items-center justify-between text-[11px] font-black uppercase text-gray-400 px-3 pb-1 border-b border-[#2A2A34]">
             <span>{language === 'vi' ? 'BÀI HÁT' : 'TRACK'}</span>
             <span className="hidden sm:inline">{language === 'vi' ? 'HỢP CÀ PHÊ' : 'PAIRING'}</span>
             <span>{language === 'vi' ? 'THỜI LƯỢNG' : 'TIME'}</span>
           </div>
+
+          {!playlist.loadError && playlist.tracks.length === 0 && (
+            <p className="px-3 py-5 text-center text-sm text-gray-400">
+              {language === 'vi' ? 'Đang tải bài hát từ Spotify…' : 'Loading tracks from Spotify…'}
+            </p>
+          )}
 
           {playlist.tracks.map((track, idx) => {
             const isCurrent = track.id === currentTrackId;

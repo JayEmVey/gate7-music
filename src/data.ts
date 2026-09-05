@@ -46,7 +46,6 @@ export const INITIAL_TIME_SLOTS: TimeSlot[] = [
     accentColor: '#FEBC11',
     badgeBg: '#FEBC11',
     badgeText: '#0D0D0E',
-    isCurrentSlot: true,
     playlists: [
       {
         id: 'bossa-nova-indie',
