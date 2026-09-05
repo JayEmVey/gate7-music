@@ -16,7 +16,7 @@ import {
   getSpotifyUserToken,
   fetchCurrentlyPlayingTrack,
   refreshSpotifyUserToken,
-  fetchSpotifyPlaylistTracks,
+  fetchCachedPlaylistTracks,
   transferSpotifyPlayback,
   startSpotifyPlayback,
   pauseSpotifyPlayback,
@@ -122,6 +122,8 @@ export default function App() {
   const loadedPlaylistIdsRef = useRef(new Set<string>());
   const hydratingPlaylistIdsRef = useRef(new Set<string>());
   const failedPlaylistIdsRef = useRef(new Set<string>());
+  const playlistTrackCacheRef = useRef(new Map<string, Track[]>());
+  const playlistTrackRequestsRef = useRef(new Map<string, Promise<Track[]>>());
   const pendingRestoreRef = useRef<PersistedPlaybackState | null>(persistedPlayback);
   const isLocalPlaybackActiveRef = useRef(false);
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
@@ -191,69 +193,6 @@ export default function App() {
       })
       .catch((err) => console.error('Failed to load playlists.json:', err));
   }, [language]);
-
-  useEffect(() => {
-    if (spotifyAuthStatus !== 'connected') return;
-    const playlists = timeSlots
-      .flatMap((slot) => slot.playlists)
-      .filter((playlist) => playlist.spotifyId && !loadedPlaylistIdsRef.current.has(playlist.id) && !hydratingPlaylistIdsRef.current.has(playlist.id) && !failedPlaylistIdsRef.current.has(playlist.id));
-    if (playlists.length === 0) return;
-    playlists.forEach((playlist) => hydratingPlaylistIdsRef.current.add(playlist.id));
-
-    // Hydrate one playlist at a time so the catalog does not burst through
-    // Spotify's rate limit during startup.
-    const hydrate = async (playlist: Playlist) => {
-      try {
-        const spotifyTracks = await fetchSpotifyPlaylistTracks(playlist.spotifyId!, playlist.title);
-        loadedPlaylistIdsRef.current.add(playlist.id);
-        return {
-          playlist,
-          tracks: spotifyTracks.map((track) => ({
-            id: `spotify-${track.id}`,
-            spotifyId: track.id,
-            title: track.title,
-            artist: track.artist,
-            album: track.album,
-            duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
-            durationSec: track.durationSec,
-            coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
-            coverUrl: track.coverUrl,
-          })),
-        };
-      } catch (error) {
-        console.warn(`Could not hydrate Spotify playlist ${playlist.spotifyId}:`, error);
-        failedPlaylistIdsRef.current.add(playlist.id);
-        return null;
-      } finally {
-        hydratingPlaylistIdsRef.current.delete(playlist.id);
-      }
-    };
-    const hydrateInBatches = async () => {
-      const hydrated: Array<{ playlist: Playlist; tracks: Track[] } | null> = [];
-      for (const playlist of playlists) {
-        hydrated.push(await hydrate(playlist));
-      }
-      const successful = hydrated.filter((result): result is { playlist: Playlist; tracks: Track[] } => result !== null);
-      const byId = new Map<string, { playlist: Playlist; tracks: Track[] }>(
-        successful.map(({ playlist, tracks }) => [playlist.id, { playlist, tracks }]),
-      );
-      setTimeSlots((slots) => slots.map((slot) => ({
-        ...slot,
-        playlists: slot.playlists.map((playlist) => {
-          const result = byId.get(playlist.id);
-          if (!result) return playlist;
-          return {
-            ...playlist,
-            tracks: result.tracks,
-            trackCount: result.tracks.length,
-            coverUrl: playlist.coverUrl || result.tracks.find((track) => track.coverUrl)?.coverUrl,
-            isNowPlaying: result.tracks.some((track) => track.spotifyId === currentTrack.spotifyId),
-          };
-        }),
-      })));
-    };
-    void hydrateInBatches();
-  }, [spotifyAuthStatus, timeSlots, currentTrack.spotifyId]);
 
   // Spotify Chooser Modal state
   const [spotifyChooserTarget, setSpotifyChooserTarget] = useState<SpotifyItemTarget | null>(null);
@@ -386,7 +325,8 @@ export default function App() {
 
   // Keep remote metadata fresh until the browser player has taken ownership.
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const pollRemotePlayback = async () => {
+      if (document.visibilityState === 'hidden') return;
       if (isLocalPlaybackActiveRef.current) return;
       const live = await fetchCurrentlyPlayingTrack();
       if (!live) return;
@@ -400,8 +340,13 @@ export default function App() {
       }, prev.coverUrl));
       setPlaybackSec(live.progressSec);
       setIsPlaying(live.isPlaying);
-    }, 4000);
-    return () => clearInterval(interval);
+    };
+    const interval = window.setInterval(pollRemotePlayback, 15_000);
+    document.addEventListener('visibilitychange', pollRemotePlayback);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', pollRemotePlayback);
+    };
   }, [spotifyPlayerReady]);
 
   // The SDK may emit state events at irregular intervals. Poll the local player
@@ -486,10 +431,13 @@ export default function App() {
   useEffect(() => {
     spotifyPlayerRef.current?.setVolume(volume / 100);
     if (!getSpotifyUserToken()) return;
-    setSpotifyVolume(volume, spotifyDeviceIdRef.current || undefined).catch((error) => {
-      console.warn('Could not set Spotify playback volume:', error);
-    });
-  }, [volume]);
+    const timeout = window.setTimeout(() => {
+      setSpotifyVolume(volume, spotifyDeviceIdRef.current || undefined).catch((error) => {
+        console.warn('Could not set Spotify playback volume:', error);
+      });
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [volume, spotifyAuthStatus, spotifyPlayerReady]);
 
   // Handlers
   const handleTogglePlay = async () => {
@@ -731,22 +679,48 @@ export default function App() {
       setSelectedPlaylistForModal(playlist);
       return;
     }
+
+    const cacheKey = `gate7_playlist_tracks:${playlist.spotifyId}`;
+    let tracks = playlistTrackCacheRef.current.get(playlist.id);
+    if (!tracks) {
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) tracks = JSON.parse(cached) as Track[];
+      } catch {
+        sessionStorage.removeItem(cacheKey);
+      }
+    }
+
     try {
-      const spotifyTracks = await fetchSpotifyPlaylistTracks(playlist.spotifyId, playlist.title);
-      const tracks: Track[] = spotifyTracks.map((track) => ({
-        id: `spotify-${track.id}`,
-        spotifyId: track.id,
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-        duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
-        durationSec: track.durationSec,
-        coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
-        coverUrl: track.coverUrl,
-      }));
+      if (!tracks) {
+        let request = playlistTrackRequestsRef.current.get(playlist.id);
+        if (!request) {
+          request = fetchCachedPlaylistTracks(playlist.spotifyId).then((spotifyTracks) => spotifyTracks.map((track) => ({
+            id: `spotify-${track.id}`,
+            spotifyId: track.id,
+            title: track.title,
+            artist: track.artist,
+            album: track.album,
+            duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
+            durationSec: track.durationSec,
+            coffeePairing: 'Cold Brew Tonic & Cà phê Cốt Dừa',
+            coverUrl: track.coverUrl,
+          })));
+          playlistTrackRequestsRef.current.set(playlist.id, request);
+        }
+        try {
+          tracks = await request;
+        } finally {
+          playlistTrackRequestsRef.current.delete(playlist.id);
+        }
+        playlistTrackCacheRef.current.set(playlist.id, tracks);
+        sessionStorage.setItem(cacheKey, JSON.stringify(tracks));
+      }
+
       loadedPlaylistIdsRef.current.add(playlist.id);
       const updatedPlaylist = {
         ...playlist,
+        loadError: undefined,
         tracks,
         trackCount: tracks.length,
         coverUrl: playlist.coverUrl || tracks.find((track) => track.coverUrl)?.coverUrl,
@@ -964,6 +938,9 @@ export default function App() {
         currentTrackId={currentTrack.id}
         isPlaying={isPlaying}
         onPlayTrack={(track, pl) => handlePlaySpecificTrack(track, pl)}
+        onRetry={() => {
+          if (selectedPlaylistForModal) void loadPlaylistTracks(selectedPlaylistForModal);
+        }}
         onOpenSpotify={(target) => handleOpenSpotify(target)}
         language={language}
       />

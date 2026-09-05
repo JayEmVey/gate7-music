@@ -159,3 +159,39 @@ To provide realistic audio feedback without requiring external streaming credent
 - **Domain**: `music.gate7.vn`
 - **Mechanism**: The file `/public/CNAME` contains `music.gate7.vn`. When Vite compiles the application to `./dist`, it automatically carries over `CNAME` into the root of the distribution bundle, ensuring GitHub Pages never drops the custom domain setting after automated builds.
 
+## 6. Spotify Rate-Limit Improvement Plan
+
+Spotify Web API requests are limited in a rolling 30-second window per app. The official guidance recommends honoring `Retry-After`, using backoff, lazy-loading features, caching playlist data with `snapshot_id`, using batch endpoints where available, monitoring request patterns, and applying for Extended Quota Mode for multi-user applications.
+
+### 6.1 Phase 1: Lazy Playlist Loading (Implemented)
+
+- Playlist cards use the local `/public/music/playlists.json` catalog for names, covers, counts, and durations on first render.
+- The application no longer hydrates every playlist automatically after Spotify authentication.
+- Playlist tracks are requested only when the user opens that playlist's detail modal.
+- Track results are cached in `sessionStorage` by Spotify playlist ID.
+- Concurrent opens of the same playlist share one in-flight Promise instead of creating duplicate requests.
+- This removes the initial burst of approximately 19 playlist requests per page load.
+
+### 6.2 Phase 2: Request Protection (Implemented)
+
+- Added a shared per-tab Spotify request queue and a global cooldown after a `429` response.
+- Centralized `Retry-After` handling and prevent queued requests from starting during the cooldown.
+- Added a user-visible playlist Retry action; failed loads can be retried without reloading the page.
+- Debounced Web API volume updates so slider dragging sends only the final value.
+- Increased remote playback polling from 4 seconds to 15 seconds and pause it when the document is hidden.
+
+### 6.3 Phase 3: Durable Playlist Cache (Implemented)
+
+- Cloudflare Worker endpoint: `GET /api/playlists/:playlistId/tracks`.
+- Store playlist tracks, `snapshot_id`, and `checkedAt` centrally in the `SPOTIFY_PLAYLIST_CACHE` KV namespace.
+- Serve cached tracklists for five minutes before refreshing from Spotify.
+- Serve stale cached data when Spotify is rate-limited and return `Retry-After` when no cache exists.
+- Cache the curator access token in the Worker isolate until it is near expiry.
+- The Worker route is configured as `music.gate7.vn/*`; it serves the built assets and handles `/api/*` from the same deployment while retaining the existing proxied DNS record.
+
+### 6.4 Phase 4: Quota and Observability
+
+- Review request volume and `429` periods in the Spotify Developer Dashboard.
+- Log endpoint, status, retry count, latency, and cache hit/miss information through the server layer.
+- Apply for Extended Quota Mode before opening the application to a larger public audience.
+

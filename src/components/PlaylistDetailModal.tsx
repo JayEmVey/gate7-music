@@ -10,6 +10,7 @@ interface PlaylistDetailModalProps {
   currentTrackId: string;
   isPlaying: boolean;
   onPlayTrack: (track: Track, playlist: Playlist) => void;
+  onRetry?: () => void;
   onOpenSpotify?: (target: SpotifyItemTarget) => void;
   language: Language;
 }
@@ -21,6 +22,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
   currentTrackId,
   isPlaying,
   onPlayTrack,
+  onRetry,
   onOpenSpotify,
   language,
 }) => {
@@ -90,8 +92,17 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
         {/* Tracklist */}
         <div className="space-y-2">
           {playlist.loadError && (
-            <div className="border-2 border-amber-400 bg-amber-950/40 px-3 py-2 text-xs font-medium text-amber-100">
-              {playlist.loadError}
+            <div className="border-2 border-amber-400 bg-amber-950/40 px-3 py-2 text-xs font-medium text-amber-100 flex items-center justify-between gap-3">
+              <span>{playlist.loadError}</span>
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="shrink-0 bg-[#FEBC11] text-[#0D0D0E] border-2 border-black px-2 py-1 font-black uppercase shadow-brutal cursor-pointer"
+                >
+                  {language === 'vi' ? 'Thử lại' : 'Retry'}
+                </button>
+              )}
             </div>
           )}
           <div className="flex items-center justify-between text-[11px] font-black uppercase text-gray-400 px-3 pb-1 border-b border-[#2A2A34]">

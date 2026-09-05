@@ -11,6 +11,29 @@ export const SPOTIFY_SCOPE_VERSION = 'web-playback-playlists-v2';
 const PKCE_VERIFIER_KEY = 'spotify_pkce_verifier';
 const PKCE_STATE_KEY = 'spotify_oauth_state';
 const PKCE_REDIRECT_URI_KEY = 'spotify_oauth_redirect_uri';
+let spotifyRequestQueue: Promise<unknown> = Promise.resolve();
+let spotifyRateLimitUntil = 0;
+
+function queueSpotifyRequest(request: () => Promise<Response>): Promise<Response> {
+  const run = async () => {
+    const delayMs = Math.max(0, spotifyRateLimitUntil - Date.now());
+    if (delayMs > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+    }
+    const response = await request();
+    if (response.status === 429) noteSpotifyRateLimit(response);
+    return response;
+  };
+  const next = spotifyRequestQueue.then(run, run);
+  spotifyRequestQueue = next.catch(() => undefined);
+  return next;
+}
+
+function noteSpotifyRateLimit(response: Response): void {
+  const retryAfter = Number(response.headers.get('Retry-After') || 0);
+  const delaySeconds = Math.min(Math.max(retryAfter || 2, 1), 30);
+  spotifyRateLimitUntil = Math.max(spotifyRateLimitUntil, Date.now() + delaySeconds * 1000);
+}
 
 function getRedirectUri(): string {
   const configuredUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI?.trim();
@@ -273,12 +296,12 @@ async function spotifyFetch(path: string, init: RequestInit = {}): Promise<Respo
 
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Bearer ${token}`);
-  let response = await fetch(`https://api.spotify.com/v1${path}`, { ...init, headers });
+  let response = await queueSpotifyRequest(() => fetch(`https://api.spotify.com/v1${path}`, { ...init, headers }));
   if (response.status === 401) {
     token = await refreshSpotifyUserToken();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
-      response = await fetch(`https://api.spotify.com/v1${path}`, { ...init, headers });
+      response = await queueSpotifyRequest(() => fetch(`https://api.spotify.com/v1${path}`, { ...init, headers }));
     }
     if (response.status === 401) {
       disconnectSpotifyUser();
@@ -288,10 +311,8 @@ async function spotifyFetch(path: string, init: RequestInit = {}): Promise<Respo
   // retry hint and use bounded backoff so temporary rate limits do not become
   // permanent empty playlists.
   for (let attempt = 0; response.status === 429 && attempt < 3; attempt += 1) {
-    const retryAfter = Number(response.headers.get('Retry-After') || 0);
-    const delaySeconds = Math.min(Math.max(retryAfter || 2 ** attempt, 1), 30);
-    await new Promise((resolve) => window.setTimeout(resolve, delaySeconds * 1000));
-    response = await fetch(`https://api.spotify.com/v1${path}`, { ...init, headers });
+    noteSpotifyRateLimit(response);
+    response = await queueSpotifyRequest(() => fetch(`https://api.spotify.com/v1${path}`, { ...init, headers }));
   }
   return response;
 }
@@ -480,4 +501,17 @@ export function getCurrentSlotKey(): 'morning' | 'afternoon' | 'lunch' | 'evenin
   if (hour >= 11 && hour < 15) return 'lunch';
   if (hour >= 15 && hour < 22) return 'evening';
   return 'evening'; // late night chill
+}
+
+export async function fetchCachedPlaylistTracks(playlistId: string): Promise<SpotifyPlaylistTrack[]> {
+  const response = await fetch(`/api/playlists/${encodeURIComponent(playlistId)}/tracks`);
+
+  if (!response.ok) {
+    throw new SpotifyApiError(
+      response.status,
+      `Could not load cached playlist ${playlistId} (${response.status})`,
+    );
+  }
+
+  return response.json();
 }
