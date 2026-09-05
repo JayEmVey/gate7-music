@@ -11,6 +11,8 @@ export const SPOTIFY_SCOPE_VERSION = 'web-playback-playlists-v2';
 const PKCE_VERIFIER_KEY = 'spotify_pkce_verifier';
 const PKCE_STATE_KEY = 'spotify_oauth_state';
 const PKCE_REDIRECT_URI_KEY = 'spotify_oauth_redirect_uri';
+const RAPIDAPI_HOST = 'spotify-extended-audio-features-api.p.rapidapi.com';
+const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY?.trim();
 let spotifyRequestQueue: Promise<unknown> = Promise.resolve();
 let spotifyRateLimitUntil = 0;
 
@@ -139,10 +141,15 @@ export async function fetchSpotifySearchTracks(query: string): Promise<SpotifyPl
 }
 
 export async function fetchSpotifyTrackAudioFeatures(trackId: string): Promise<SpotifyTrackAudioFeatures | null> {
-  if (!trackId) return null;
+  if (!trackId || !RAPIDAPI_KEY) return null;
 
   try {
-    const response = await spotifyFetch(`/audio-features/${encodeURIComponent(trackId)}`);
+    const response = await fetch(`https://${RAPIDAPI_HOST}/v1/audio-features/${encodeURIComponent(trackId)}`, {
+      headers: {
+        'x-rapidapi-host': RAPIDAPI_HOST,
+        'x-rapidapi-key': RAPIDAPI_KEY,
+      },
+    });
     if (!response.ok) return null;
     const data = await response.json();
     if (!data || typeof data.tempo !== 'number') return null;

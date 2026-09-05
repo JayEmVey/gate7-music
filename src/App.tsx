@@ -66,8 +66,8 @@ function toAppTrack(track: any, fallbackCover = '', previousTrack?: Track): Trac
     coffeePairing: 'Drip Drop Coffee',
     genre: 'Spotify Web Playback',
     coverUrl: track.album?.images?.[0]?.url || track.coverUrl || fallbackCover,
-    audioFeatures: track.audioFeatures || (previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'spotify' ? previousTrack.audioFeatures : undefined),
-    audioFeaturesSource: track.audioFeatures ? 'spotify' : previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'spotify' ? 'spotify' : undefined,
+    audioFeatures: track.audioFeatures || (previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'rapidapi' ? previousTrack.audioFeatures : undefined),
+    audioFeaturesSource: track.audioFeatures ? 'rapidapi' : previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'rapidapi' ? 'rapidapi' : undefined,
   };
 }
 
@@ -429,8 +429,8 @@ export default function App() {
           coffeePairing: 'Drip Drop Coffee',
           genre: 'Spotify Desktop Stream',
           coverUrl: live.coverUrl || previousTrack.coverUrl,
-          audioFeatures: previousTrack.spotifyId === live.trackId && previousTrack.audioFeaturesSource === 'spotify' ? previousTrack.audioFeatures : undefined,
-          audioFeaturesSource: previousTrack.spotifyId === live.trackId && previousTrack.audioFeaturesSource === 'spotify' ? 'spotify' : undefined,
+          audioFeatures: previousTrack.spotifyId === live.trackId && previousTrack.audioFeaturesSource === 'rapidapi' ? previousTrack.audioFeatures : undefined,
+          audioFeaturesSource: previousTrack.spotifyId === live.trackId && previousTrack.audioFeaturesSource === 'rapidapi' ? 'rapidapi' : undefined,
         }));
       } else {
         setIsPlaying(false);
@@ -459,9 +459,9 @@ export default function App() {
     const trackId = currentTrack.spotifyId;
     if (!trackId) return;
 
-    if (currentTrack.audioFeaturesSource !== 'spotify') {
+    if (currentTrack.audioFeaturesSource !== 'rapidapi') {
       setCurrentTrack((prev) => {
-        if (prev.spotifyId !== trackId || prev.audioFeaturesSource === 'spotify') return prev;
+        if (prev.spotifyId !== trackId || prev.audioFeaturesSource === 'rapidapi') return prev;
         const { audioFeatures: _audioFeatures, audioFeaturesSource: _audioFeaturesSource, ...trackWithoutFeatures } = prev;
         return trackWithoutFeatures;
       });
@@ -470,7 +470,7 @@ export default function App() {
     fetchSpotifyTrackAudioFeatures(trackId).then((audioFeatures) => {
       if (!audioFeatures) return;
       setCurrentTrack((prev) => prev.spotifyId === trackId
-        ? { ...prev, audioFeatures, audioFeaturesSource: 'spotify' }
+        ? { ...prev, audioFeatures, audioFeaturesSource: 'rapidapi' }
         : prev);
     });
   }, [currentTrack.spotifyId]);

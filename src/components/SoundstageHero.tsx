@@ -290,7 +290,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
               {audioFeatures && (
                 <>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-[#FEBC11] text-[#0D0D0E]" title={currentTrack.audioFeaturesSource === 'estimated' ? 'Estimated until Spotify audio analysis is available' : 'Spotify tempo, key and mode'}>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-[#FEBC11] text-[#0D0D0E]" title={currentTrack.audioFeaturesSource === 'estimated' ? 'Estimated until RapidAPI audio analysis is available' : 'RapidAPI tempo, key and mode'}>
                     <i className="fa-solid fa-music"></i>
                     {Math.round(audioFeatures.tempo)} BPM • {keyLabel(audioFeatures)}{currentTrack.audioFeaturesSource === 'estimated' ? ' ~' : ''}
                   </span>

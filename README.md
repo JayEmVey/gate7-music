@@ -152,7 +152,16 @@ is the literal loopback IP above. The same value is provided in `.env.example` a
 `VITE_SPOTIFY_REDIRECT_URI`; copy it into `.env.local` if you need a different
 callback URL.
 
-### 5.5 Spotify playback and playlists
+### 5.5 RapidAPI audio features
+
+Spotify audio features are retrieved through Musicae's RapidAPI replacement.
+Set `VITE_RAPIDAPI_KEY` in `.env.local` for local development, or provide it as
+a deployment secret. The app sends the Spotify track ID to
+`spotify-extended-audio-features-api.p.rapidapi.com/v1/audio-features/{trackId}`
+and uses the returned energy, tempo, acousticness, instrumentalness, valence,
+danceability, liveness, mode, and loudness metrics for sonic pairing.
+
+### 5.6 Spotify playback and playlists
 
 The browser player requires a Spotify Premium account and the scopes requested by
 this app. Browsers block unprompted audio after a refresh, so playback state is
@@ -166,13 +175,13 @@ account used to sign in (or make that account a collaborator). Editorial/public
 Spotify playlist IDs can still be displayed and opened in Spotify, but their
 track lists are unavailable through this API mode.
 
-### 5.6 Code Quality & Linting
+### 5.7 Code Quality & Linting
 Run TypeScript checks to verify type safety and ensure no compilation errors:
 ```bash
 npm run lint
 ```
 
-### 5.7 Production Build
+### 5.8 Production Build
 Compile the application into static production assets:
 ```bash
 npm run build
