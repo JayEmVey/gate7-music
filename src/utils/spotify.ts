@@ -2,7 +2,7 @@
 // User authentication uses OAuth Authorization Code with PKCE.
 
 export const SPOTIFY_CONFIG = {
-  clientId: 'be83df152a954a5fbe64cd9f065cb832',
+  clientId: 'b25c3d0a87e54a79ad8f3fe8ae961938',
   scopes: 'streaming user-read-email user-read-private user-modify-playback-state playlist-read-private playlist-read-collaborative',
 };
 

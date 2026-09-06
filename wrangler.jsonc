@@ -9,7 +9,7 @@
 		}
 	],
 	"vars": {
-		"SPOTIFY_CLIENT_ID": "be83df152a954a5fbe64cd9f065cb832"
+		"SPOTIFY_CLIENT_ID": "b25c3d0a87e54a79ad8f3fe8ae961938"
 	},
 	"assets": {
 		"directory": "./dist"
