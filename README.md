@@ -175,6 +175,18 @@ account used to sign in (or make that account a collaborator). Editorial/public
 Spotify playlist IDs can still be displayed and opened in Spotify, but their
 track lists are unavailable through this API mode.
 
+The deployed playlist cache uses a curator refresh token. Configure the new
+Spotify app credentials without committing them:
+
+```bash
+npx wrangler secret put SPOTIFY_CLIENT_SECRET
+npx wrangler secret put SPOTIFY_CURATOR_REFRESH_TOKEN
+```
+
+The refresh token must be issued for the same Spotify app as
+`SPOTIFY_CLIENT_ID`; changing the app requires generating a new curator refresh
+token through the OAuth flow.
+
 ### 5.7 Code Quality & Linting
 Run TypeScript checks to verify type safety and ensure no compilation errors:
 ```bash

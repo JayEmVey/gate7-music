@@ -22,11 +22,13 @@ async function getSpotifyAccessToken(env) {
     })
   });
 
+  const data = await response.json();
   if (!response.ok) {
-    throw new Error(`Spotify token request failed (${response.status})`);
+    const error = new Error(`Spotify token request failed (${response.status}: ${data.error || 'unknown_error'})`);
+    error.status = response.status;
+    throw error;
   }
 
-  const data = await response.json();
   cachedSpotifyToken = {
     accessToken: data.access_token,
     expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000
