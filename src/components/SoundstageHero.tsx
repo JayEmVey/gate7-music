@@ -12,7 +12,6 @@ interface SoundstageHeroProps {
   onSeek: (sec: number) => void;
   onPairingClick: () => void;
   onSpotifyClick: () => void;
-  onSyncDesktop?: () => void;
   spotifyDesktopStatus?: string;
   spotifySource?: 'desktop' | 'web';
   language: Language;
@@ -27,7 +26,6 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   onSeek,
   onPairingClick,
   onSpotifyClick,
-  onSyncDesktop,
   spotifyDesktopStatus,
   spotifySource = 'desktop',
   language,
@@ -349,19 +347,6 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
             >
               <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play ml-1'}`} id="hero-play-icon"></i>
             </button>
-
-            {/* Transfer playback to the browser player */}
-            {onSyncDesktop && (
-              <button
-                id="hero-spotify-sync-btn"
-                onClick={onSyncDesktop}
-                className="px-3.5 py-3.5 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] text-xs font-black border-2 border-black shadow-brutal hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 uppercase tracking-wider cursor-pointer"
-                title={language === 'vi' ? 'Chuyển phát Spotify sang trình duyệt' : 'Transfer Spotify playback to this browser'}
-              >
-                <i className="fa-solid fa-arrows-rotate"></i>
-                <span className="hidden sm:inline">{language === 'vi' ? 'Chuyển sang Web' : 'Use Web Player'}</span>
-              </button>
-            )}
 
             <button
               id="hero-spotify-open-btn"

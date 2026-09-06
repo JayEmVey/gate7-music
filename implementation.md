@@ -77,7 +77,7 @@ Replacing traditional static icons, this component introduces an animated SVG ch
 - **Gate 7 Spotify Auto-Authentication (`/src/utils/spotify.ts`)**:
   - Authenticates the signed-in Spotify user with OAuth Authorization Code + PKCE and requests the `streaming` scope required by the Web Playback SDK.
   - Loads the Spotify Web Playback SDK in the browser and creates the `Gate 7 Soundstage` player device.
-  - Uses SDK `player_state_changed` events for current track, play state, and metadata; no Web API now-playing polling is used.
+  - Uses SDK `player_state_changed` events for current track, play state, and metadata; playback is scoped to the Gate 7 Soundstage browser device.
   - Removed obsolete "Spotify Sync" buttons across the application in favor of persistent, automatic connection indicators.
 - **Spotify Chooser Modal (`SpotifyChooserModal.tsx`)**:
   - Activated when a guest clicks "Open Spotify" on any track, playlist card, or in the bottom player bar.
@@ -178,7 +178,7 @@ Spotify Web API requests are limited in a rolling 30-second window per app. The 
 - Centralized `Retry-After` handling and prevent queued requests from starting during the cooldown.
 - Added a user-visible playlist Retry action; failed loads can be retried without reloading the page.
 - Debounced Web API volume updates so slider dragging sends only the final value.
-- Removed remote playback polling entirely. Browser playback metadata now comes from the Web Playback SDK event stream.
+- Browser playback metadata comes from the Web Playback SDK event stream for the Gate 7 Soundstage device.
 - Retained Web API calls only for explicit playback commands such as transfer, play, pause, seek, volume, shuffle, repeat, and track navigation.
 
 ### 6.3 Phase 3: Web Playback SDK Player (Implemented)
@@ -187,7 +187,7 @@ Spotify Web API requests are limited in a rolling 30-second window per app. The 
 - Uses `ready`, `not_ready`, `player_state_changed`, and SDK error events to drive the UI.
 - Transfers playback to the browser device when the user chooses the browser player, then lets SDK events update the now-playing display.
 - Requires a Spotify Premium account, browser audio activation, and the `streaming` OAuth scope as specified by Spotify's Web Playback SDK guide.
-- Removed the `GET /me/player/currently-playing` client helper and its 15-second polling loop, eliminating the high-volume endpoint responsible for the observed rate-limit pressure.
+- Removed all client calls to `GET /me/player/currently-playing`; playback state is not synchronized from other Spotify devices.
 
 ### 6.4 Phase 4: Durable Playlist Cache (Implemented)
 

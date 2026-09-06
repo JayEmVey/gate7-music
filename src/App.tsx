@@ -382,41 +382,6 @@ export default function App() {
     return () => window.clearInterval(interval);
   }, [spotifyPlayerReady]);
 
-  // Transfer playback into the browser player when the user requests a sync.
-  const handleSyncDesktop = useCallback(async () => {
-    const userToken = getSpotifyUserToken();
-    if (!userToken) {
-      // If user hasn't authorized Spotify OAuth yet, trigger popup
-      const authUrl = await getSpotifyUserAuthUrl();
-      const popup = window.open(authUrl, 'spotify_login', 'width=500,height=700');
-      if (!popup) {
-        setSpotifyAuthStatus('failed');
-        console.warn('Spotify login popup was blocked by the browser.');
-        return;
-      }
-      setIsPlaying(false);
-      setPlaybackSec(0);
-      setSpotifyDesktopStatus('Spotify login required');
-    } else {
-      const player = spotifyPlayerRef.current;
-      const deviceId = spotifyDeviceIdRef.current;
-      if (!player || !deviceId) {
-        setSpotifyDesktopStatus('Spotify browser player is still connecting');
-        return;
-      }
-      try {
-        await player.activateElement();
-        const transferred = await transferSpotifyPlayback(deviceId, false);
-        if (!transferred) throw new Error('Spotify could not transfer playback to this browser');
-        setSpotifySource('web');
-        setSpotifyDesktopStatus('Spotify playback transferred to this browser');
-      } catch (error) {
-        console.warn('Could not transfer Spotify playback to the browser:', error);
-        setSpotifyDesktopStatus('Spotify playback could not be transferred');
-      }
-    }
-  }, []);
-
   const handleOpenSpotify = (target?: SpotifyItemTarget) => {
     if (target) {
       setSpotifyChooserTarget(target);
@@ -863,7 +828,6 @@ export default function App() {
             onSeek={handleSeek}
             onPairingClick={() => setIsPairingModalOpen(true)}
             onSpotifyClick={() => handleOpenSpotify()}
-            onSyncDesktop={handleSyncDesktop}
             spotifyDesktopStatus={spotifyDesktopStatus}
             spotifySource={spotifySource}
             language={language}
