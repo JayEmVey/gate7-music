@@ -350,16 +350,16 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
               <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play ml-1'}`} id="hero-play-icon"></i>
             </button>
 
-            {/* Sync Desktop Button */}
+            {/* Transfer playback to the browser player */}
             {onSyncDesktop && (
               <button
                 id="hero-spotify-sync-btn"
                 onClick={onSyncDesktop}
                 className="px-3.5 py-3.5 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] text-xs font-black border-2 border-black shadow-brutal hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 uppercase tracking-wider cursor-pointer"
-                title={language === 'vi' ? 'Đồng bộ bài hát đang phát trên Spotify Desktop' : 'Sync playing track from Spotify Desktop'}
+                title={language === 'vi' ? 'Chuyển phát Spotify sang trình duyệt' : 'Transfer Spotify playback to this browser'}
               >
                 <i className="fa-solid fa-arrows-rotate"></i>
-                <span className="hidden sm:inline">{language === 'vi' ? 'Đồng bộ' : 'Sync'}</span>
+                <span className="hidden sm:inline">{language === 'vi' ? 'Chuyển sang Web' : 'Use Web Player'}</span>
               </button>
             )}
 

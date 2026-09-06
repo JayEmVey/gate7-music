@@ -75,9 +75,9 @@ Replacing traditional static icons, this component introduces an animated SVG ch
 
 ### 2.7 Interactive Modals & Spotify Integration
 - **Gate 7 Spotify Auto-Authentication (`/src/utils/spotify.ts`)**:
-  - Automatically connects to the Spotify Web API on page load using Gate 7 Coffee Roastery's Client ID (`be83df152a954a5fbe64cd9f065cb832`) and Client Secret (`eabdc8fb352a4504aab3e1379d8ad6a5`).
-  - Employs the OAuth 2.0 Client Credentials flow (`https://accounts.spotify.com/api/token`) with token caching and fallback resilience.
-  - Automatically prepares the "Now Playing" broadcast on load with zero manual sync steps required.
+  - Authenticates the signed-in Spotify user with OAuth Authorization Code + PKCE and requests the `streaming` scope required by the Web Playback SDK.
+  - Loads the Spotify Web Playback SDK in the browser and creates the `Gate 7 Soundstage` player device.
+  - Uses SDK `player_state_changed` events for current track, play state, and metadata; no Web API now-playing polling is used.
   - Removed obsolete "Spotify Sync" buttons across the application in favor of persistent, automatic connection indicators.
 - **Spotify Chooser Modal (`SpotifyChooserModal.tsx`)**:
   - Activated when a guest clicks "Open Spotify" on any track, playlist card, or in the bottom player bar.
@@ -99,7 +99,7 @@ Replacing traditional static icons, this component introduces an animated SVG ch
 To provide realistic audio feedback without requiring external streaming credentials:
 - Uses the **HTML5 Web Audio API** via `AudioContext` and `OscillatorNode`.
 - When playback is toggled, a procedural, mellow acoustic chime and harmonic undertone plays to confirm audio engagement.
-- Internal timers track elapsed playback seconds, advancing the seek slider and updating timestamps in real time.
+- The Spotify Web Playback SDK supplies the authoritative track and play state. A one-second `getCurrentState()` read is made against the local SDK player only to keep the progress slider smooth; it does not call the Web API.
 - Equalizer animations and vinyl disc states are tied directly to the `isPlaying` boolean state flag.
 
 ---
@@ -178,9 +178,18 @@ Spotify Web API requests are limited in a rolling 30-second window per app. The 
 - Centralized `Retry-After` handling and prevent queued requests from starting during the cooldown.
 - Added a user-visible playlist Retry action; failed loads can be retried without reloading the page.
 - Debounced Web API volume updates so slider dragging sends only the final value.
-- Increased remote playback polling from 4 seconds to 15 seconds and pause it when the document is hidden.
+- Removed remote playback polling entirely. Browser playback metadata now comes from the Web Playback SDK event stream.
+- Retained Web API calls only for explicit playback commands such as transfer, play, pause, seek, volume, shuffle, repeat, and track navigation.
 
-### 6.3 Phase 3: Durable Playlist Cache (Implemented)
+### 6.3 Phase 3: Web Playback SDK Player (Implemented)
+
+- Loads `https://sdk.scdn.co/spotify-player.js` after user authentication and creates a browser playback device.
+- Uses `ready`, `not_ready`, `player_state_changed`, and SDK error events to drive the UI.
+- Transfers playback to the browser device when the user chooses the browser player, then lets SDK events update the now-playing display.
+- Requires a Spotify Premium account, browser audio activation, and the `streaming` OAuth scope as specified by Spotify's Web Playback SDK guide.
+- Removed the `GET /me/player/currently-playing` client helper and its 15-second polling loop, eliminating the high-volume endpoint responsible for the observed rate-limit pressure.
+
+### 6.4 Phase 4: Durable Playlist Cache (Implemented)
 
 - Cloudflare Worker endpoint: `GET /api/playlists/:playlistId/tracks`.
 - Store playlist tracks, `snapshot_id`, and `checkedAt` centrally in the `SPOTIFY_PLAYLIST_CACHE` KV namespace.
@@ -189,9 +198,17 @@ Spotify Web API requests are limited in a rolling 30-second window per app. The 
 - Cache the curator access token in the Worker isolate until it is near expiry.
 - The Worker route is configured as `music.gate7.vn/*`; it serves the built assets and handles `/api/*` from the same deployment while retaining the existing proxied DNS record.
 
-### 6.4 Phase 4: Quota and Observability
+### 6.5 Phase 5: Quota and Observability
 
 - Review request volume and `429` periods in the Spotify Developer Dashboard.
 - Log endpoint, status, retry count, latency, and cache hit/miss information through the server layer.
 - Apply for Extended Quota Mode before opening the application to a larger public audience.
+
+### 6.6 Phase 6: Local Integration Telemetry (Implemented)
+
+- In Vite development mode only, the shared Spotify Web API request wrapper logs each intentional API response with endpoint, status, and latency.
+- The browser records API call count, success/error count, 429 count, average and last latency, current and peak concurrency, and the last endpoint.
+- Cached playlist responses record the Cloudflare Worker `X-Cache` header (`HIT`, `MISS`, `STALE`, or `ERROR`) and log the cache event in the browser console.
+- A compact `DEV / SPOTIFY` panel in the top-right header exposes these metrics and the Worker cache hit rate without adding production UI noise.
+- The telemetry is intended for local benchmarking and does not replace Spotify Dashboard metrics or Cloudflare observability logs.
 

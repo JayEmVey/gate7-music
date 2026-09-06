@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Sparkles } from 'lucide-react';
 import { Language } from '../types';
 import { SonicPairingG7Icon } from './SonicPairingG7Icon';
+import { getSpotifyTelemetry, subscribeSpotifyTelemetry, SpotifyTelemetrySnapshot } from '../utils/spotify';
 
 interface HeaderProps {
   searchQuery: string;
@@ -29,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
 }) => {
   const [currentTime, setCurrentTime] = useState('');
+  const [spotifyTelemetry, setSpotifyTelemetry] = useState<SpotifyTelemetrySnapshot>(getSpotifyTelemetry);
 
   useEffect(() => {
     const updateTime = () => {
@@ -47,7 +49,17 @@ export const Header: React.FC<HeaderProps> = ({
     return () => clearInterval(interval);
   }, [language]);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    return subscribeSpotifyTelemetry(() => setSpotifyTelemetry(getSpotifyTelemetry()));
+  }, []);
+
   const isLight = theme === 'light';
+  const apiErrorRate = spotifyTelemetry.apiRequests
+    ? Math.round((spotifyTelemetry.apiErrors / spotifyTelemetry.apiRequests) * 100)
+    : 0;
+  const cacheTotal = spotifyTelemetry.workerHits + spotifyTelemetry.workerMisses + spotifyTelemetry.workerStale;
+  const cacheHitRate = cacheTotal ? Math.round((spotifyTelemetry.workerHits / cacheTotal) * 100) : 0;
 
   return (
     <>
@@ -69,7 +81,31 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden md:inline"> SOUNDSTAGE</span>
         </div>
 
-        
+        {import.meta.env.DEV && (
+          <details className="relative shrink-0 text-[9px] font-mono normal-case tracking-normal">
+            <summary className="cursor-pointer list-none border-2 border-black bg-[#0D0D0E] px-2 py-1 text-[#FEBC11] shadow-brutal font-black">
+              DEV / SPOTIFY {spotifyTelemetry.inFlight > 0 ? '• BUSY' : '• OK'}
+            </summary>
+            <div className="absolute right-0 top-full z-50 mt-2 w-64 border-2 border-black bg-[#FFFDF0] p-3 text-[#0D0D0E] shadow-brutal-lg">
+              <div className="mb-2 flex items-center justify-between border-b border-black pb-2 font-black uppercase">
+                <span>Integration health</span>
+                <span>{spotifyTelemetry.lastLatencyMs}ms last</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                <span>API calls</span><strong>{spotifyTelemetry.apiRequests}</strong>
+                <span>Success / error</span><strong>{spotifyTelemetry.apiSuccesses} / {spotifyTelemetry.apiErrors} ({apiErrorRate}%)</strong>
+                <span>429 limited</span><strong className={spotifyTelemetry.rateLimited ? 'text-red-700' : ''}>{spotifyTelemetry.rateLimited}</strong>
+                <span>Latency avg</span><strong>{spotifyTelemetry.averageLatencyMs}ms</strong>
+                <span>In flight / peak</span><strong>{spotifyTelemetry.inFlight} / {spotifyTelemetry.peakInFlight}</strong>
+                <span>KV hit rate</span><strong>{cacheHitRate}%</strong>
+                <span>KV H / M / S</span><strong>{spotifyTelemetry.workerHits} / {spotifyTelemetry.workerMisses} / {spotifyTelemetry.workerStale}</strong>
+              </div>
+              <div className="mt-2 truncate border-t border-black pt-2 text-[8px]" title={spotifyTelemetry.lastEndpoint}>
+                LAST: {spotifyTelemetry.lastEndpoint} {spotifyTelemetry.lastCacheStatus !== '-' ? `• ${spotifyTelemetry.lastCacheStatus}` : ''}
+              </div>
+            </div>
+          </details>
+        )}
       </div>
 
       {/* Main Header */}

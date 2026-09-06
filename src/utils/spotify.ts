@@ -3,10 +3,10 @@
 
 export const SPOTIFY_CONFIG = {
   clientId: 'be83df152a954a5fbe64cd9f065cb832',
-  scopes: 'streaming user-read-currently-playing user-read-playback-state user-modify-playback-state playlist-read-private playlist-read-collaborative',
+  scopes: 'streaming user-read-email user-read-private user-modify-playback-state playlist-read-private playlist-read-collaborative',
 };
 
-export const SPOTIFY_SCOPE_VERSION = 'web-playback-playlists-v2';
+export const SPOTIFY_SCOPE_VERSION = 'web-playback-playlists-v3';
 
 const PKCE_VERIFIER_KEY = 'spotify_pkce_verifier';
 const PKCE_STATE_KEY = 'spotify_oauth_state';
@@ -15,6 +15,98 @@ const RAPIDAPI_HOST = 'spotify-extended-audio-features-api.p.rapidapi.com';
 const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY?.trim();
 let spotifyRequestQueue: Promise<unknown> = Promise.resolve();
 let spotifyRateLimitUntil = 0;
+
+export interface SpotifyTelemetrySnapshot {
+  apiRequests: number;
+  apiSuccesses: number;
+  apiErrors: number;
+  rateLimited: number;
+  averageLatencyMs: number;
+  lastLatencyMs: number;
+  inFlight: number;
+  peakInFlight: number;
+  workerHits: number;
+  workerMisses: number;
+  workerStale: number;
+  workerErrors: number;
+  lastEndpoint: string;
+  lastCacheStatus: string;
+  updatedAt: number;
+}
+
+const EMPTY_TELEMETRY: SpotifyTelemetrySnapshot = {
+  apiRequests: 0,
+  apiSuccesses: 0,
+  apiErrors: 0,
+  rateLimited: 0,
+  averageLatencyMs: 0,
+  lastLatencyMs: 0,
+  inFlight: 0,
+  peakInFlight: 0,
+  workerHits: 0,
+  workerMisses: 0,
+  workerStale: 0,
+  workerErrors: 0,
+  lastEndpoint: '-',
+  lastCacheStatus: '-',
+  updatedAt: 0,
+};
+
+let spotifyTelemetry = { ...EMPTY_TELEMETRY };
+const telemetryListeners = new Set<() => void>();
+
+function publishSpotifyTelemetry(): void {
+  if (!import.meta.env.DEV) return;
+  spotifyTelemetry = { ...spotifyTelemetry, updatedAt: Date.now() };
+  telemetryListeners.forEach((listener) => listener());
+}
+
+function recordSpotifyApiRequest(endpoint: string, status: number, latencyMs: number): void {
+  if (!import.meta.env.DEV) return;
+  spotifyTelemetry.apiRequests += 1;
+  spotifyTelemetry.apiSuccesses += status >= 200 && status < 400 ? 1 : 0;
+  spotifyTelemetry.apiErrors += status >= 400 ? 1 : 0;
+  spotifyTelemetry.rateLimited += status === 429 ? 1 : 0;
+  spotifyTelemetry.averageLatencyMs = Math.round(((spotifyTelemetry.averageLatencyMs * (spotifyTelemetry.apiRequests - 1)) + latencyMs) / spotifyTelemetry.apiRequests);
+  spotifyTelemetry.lastLatencyMs = latencyMs;
+  spotifyTelemetry.lastEndpoint = endpoint;
+  console.info('[Spotify API]', { endpoint, status, latencyMs });
+  publishSpotifyTelemetry();
+}
+
+function startSpotifyApiRequest(endpoint: string): (status: number) => void {
+  if (!import.meta.env.DEV) return () => undefined;
+  spotifyTelemetry.inFlight += 1;
+  spotifyTelemetry.peakInFlight = Math.max(spotifyTelemetry.peakInFlight, spotifyTelemetry.inFlight);
+  publishSpotifyTelemetry();
+  const startedAt = performance.now();
+  return (status: number) => {
+    spotifyTelemetry.inFlight = Math.max(0, spotifyTelemetry.inFlight - 1);
+    recordSpotifyApiRequest(endpoint, status, Math.round(performance.now() - startedAt));
+  };
+}
+
+function recordWorkerCacheStatus(endpoint: string, status: string): void {
+  if (!import.meta.env.DEV) return;
+  const normalized = status.toUpperCase();
+  if (normalized === 'HIT') spotifyTelemetry.workerHits += 1;
+  else if (normalized === 'MISS') spotifyTelemetry.workerMisses += 1;
+  else if (normalized === 'STALE') spotifyTelemetry.workerStale += 1;
+  else if (normalized === 'ERROR') spotifyTelemetry.workerErrors += 1;
+  spotifyTelemetry.lastEndpoint = endpoint;
+  spotifyTelemetry.lastCacheStatus = normalized;
+  console.info('[Spotify Worker KV]', { endpoint, cache: normalized });
+  publishSpotifyTelemetry();
+}
+
+export function getSpotifyTelemetry(): SpotifyTelemetrySnapshot {
+  return { ...spotifyTelemetry };
+}
+
+export function subscribeSpotifyTelemetry(listener: () => void): () => void {
+  telemetryListeners.add(listener);
+  return () => telemetryListeners.delete(listener);
+}
 
 function queueSpotifyRequest(request: () => Promise<Response>): Promise<Response> {
   const run = async () => {
@@ -73,18 +165,6 @@ export interface SpotifyItemTarget {
   artist?: string;
   coverUrl?: string;
   slotName?: string;
-}
-
-export interface SpotifyLivePlaybackInfo {
-  isPlaying: boolean;
-  progressSec: number;
-  durationSec: number;
-  trackId: string;
-  title: string;
-  artist: string;
-  album: string;
-  coverUrl: string;
-  spotifyUri: string;
 }
 
 export interface SpotifyPlaylistTrack {
@@ -371,12 +451,22 @@ async function spotifyFetch(path: string, init: RequestInit = {}): Promise<Respo
 
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Bearer ${token}`);
-  let response = await queueSpotifyRequest(() => fetch(`https://api.spotify.com/v1${path}`, { ...init, headers }));
+  const endpoint = path.split('?')[0];
+  const finishRequest = startSpotifyApiRequest(endpoint);
+  let response: Response;
+  try {
+    response = await queueSpotifyRequest(() => fetch(`https://api.spotify.com/v1${path}`, { ...init, headers }));
+  } catch (error) {
+    finishRequest(0);
+    throw error;
+  }
+  finishRequest(response.status);
   if (response.status === 401) {
     token = await refreshSpotifyUserToken();
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
       response = await queueSpotifyRequest(() => fetch(`https://api.spotify.com/v1${path}`, { ...init, headers }));
+      finishRequest(response.status);
     }
     if (response.status === 401) {
       disconnectSpotifyUser();
@@ -388,6 +478,7 @@ async function spotifyFetch(path: string, init: RequestInit = {}): Promise<Respo
   for (let attempt = 0; response.status === 429 && attempt < 3; attempt += 1) {
     noteSpotifyRateLimit(response);
     response = await queueSpotifyRequest(() => fetch(`https://api.spotify.com/v1${path}`, { ...init, headers }));
+    finishRequest(response.status);
   }
   return response;
 }
@@ -507,44 +598,6 @@ export function disconnectSpotifyUser(): void {
   localStorage.removeItem('spotify_user_token_expires_at');
 }
 
-/**
- * Queries Spotify API for currently playing track in user's active player (Desktop or Mobile app)
- */
-export async function fetchCurrentlyPlayingTrack(): Promise<SpotifyLivePlaybackInfo | null> {
-  try {
-    const res = await spotifyFetch('/me/player/currently-playing');
-
-    if (res.status === 204 || res.status > 400) {
-      if (res.status === 401) {
-        disconnectSpotifyUser();
-      }
-      return null;
-    }
-
-    const data = await res.json();
-    if (!data || !data.item) return null;
-
-    const item = data.item;
-    const artists = item.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist';
-    const coverUrl = item.album?.images?.[0]?.url || item.album?.images?.[1]?.url || '';
-
-    return {
-      isPlaying: Boolean(data.is_playing),
-      progressSec: Math.floor((data.progress_ms || 0) / 1000),
-      durationSec: Math.floor((item.duration_ms || 0) / 1000),
-      trackId: item.id,
-      title: item.name,
-      artist: artists,
-      album: item.album?.name || '',
-      coverUrl: coverUrl,
-      spotifyUri: item.uri || `spotify:track:${item.id}`,
-    };
-  } catch (err) {
-    console.warn('Could not fetch Spotify currently-playing track:', err);
-    return null;
-  }
-}
-
 export async function fetchSpotifyTrackMetrics(trackId: string): Promise<{ likes: number; listeners: number } | null> {
   if (!trackId) return null;
 
@@ -626,7 +679,22 @@ export function getCurrentSlotKey(): 'morning' | 'afternoon' | 'lunch' | 'evenin
 }
 
 export async function fetchCachedPlaylistTracks(playlistId: string): Promise<SpotifyPlaylistTrack[]> {
-  const response = await fetch(`/api/playlists/${encodeURIComponent(playlistId)}/tracks`);
+  const endpoint = `/api/playlists/${encodeURIComponent(playlistId)}/tracks`;
+  const startedAt = import.meta.env.DEV ? performance.now() : 0;
+  let response: Response;
+  try {
+    response = await fetch(endpoint);
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      recordWorkerCacheStatus(endpoint, 'ERROR');
+      console.warn('[Spotify Worker KV]', { endpoint, cache: 'ERROR', latencyMs: Math.round(performance.now() - startedAt) });
+    }
+    throw error;
+  }
+  recordWorkerCacheStatus(endpoint, response.headers.get('X-Cache') || (response.ok ? 'UNKNOWN' : 'ERROR'));
+  if (import.meta.env.DEV) {
+    console.info('[Spotify Worker]', { endpoint, status: response.status, latencyMs: Math.round(performance.now() - startedAt) });
+  }
 
   if (!response.ok) {
     const contentType = response.headers.get('content-type') || '';

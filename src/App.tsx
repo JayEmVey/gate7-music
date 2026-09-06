@@ -15,7 +15,6 @@ import {
   getSpotifyUserAuthUrl,
   checkAndStoreUserTokenFromUrl,
   getSpotifyUserToken,
-  fetchCurrentlyPlayingTrack,
   refreshSpotifyUserToken,
   fetchCachedPlaylistTracks,
   fetchSpotifySearchTracks,
@@ -140,7 +139,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
   const [spotifyAuthStatus, setSpotifyAuthStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
   const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('');
-  const [spotifySource, setSpotifySource] = useState<'desktop' | 'web'>('desktop');
+  const [spotifySource, setSpotifySource] = useState<'desktop' | 'web'>('web');
   const spotifyPlayerRef = useRef<SpotifyWebPlaybackPlayer | null>(null);
   const spotifyDeviceIdRef = useRef<string | null>(null);
   const loadedPlaylistIdsRef = useRef(new Set<string>());
@@ -150,6 +149,8 @@ export default function App() {
   const playlistTrackRequestsRef = useRef(new Map<string, Promise<Track[]>>());
   const pendingRestoreRef = useRef<PersistedPlaybackState | null>(persistedPlayback);
   const isLocalPlaybackActiveRef = useRef(false);
+  const heroSectionRef = useRef<HTMLDivElement | null>(null);
+  const [showBottomPlayer, setShowBottomPlayer] = useState(false);
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
 
   useEffect(() => {
@@ -172,6 +173,18 @@ export default function App() {
     updateCurrentSlot();
     const interval = window.setInterval(updateCurrentSlot, 60_000);
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const heroSection = heroSectionRef.current;
+    if (!heroSection) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowBottomPlayer(!entry.isIntersecting),
+      { rootMargin: '-72px 0px 0px 0px' },
+    );
+    observer.observe(heroSection);
+    return () => observer.disconnect();
   }, []);
 
   // Load playlists from JSON
@@ -356,35 +369,7 @@ export default function App() {
     };
   }, [spotifyAuthStatus]);
 
-  // Keep remote metadata fresh until the browser player has taken ownership.
-  useEffect(() => {
-    const pollRemotePlayback = async () => {
-      if (document.visibilityState === 'hidden') return;
-      if (isLocalPlaybackActiveRef.current) return;
-      const live = await fetchCurrentlyPlayingTrack();
-      if (!live) return;
-      setSpotifySource('desktop');
-      setCurrentTrack((prev) => toAppTrack({
-        id: live.trackId,
-        name: live.title,
-        artist: live.artist,
-        album: live.album,
-        durationSec: live.durationSec,
-        coverUrl: live.coverUrl || prev.coverUrl,
-      }, prev.coverUrl, prev));
-      setPlaybackSec(live.progressSec);
-      setIsPlaying(live.isPlaying);
-    };
-    const interval = window.setInterval(pollRemotePlayback, 15_000);
-    document.addEventListener('visibilitychange', pollRemotePlayback);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', pollRemotePlayback);
-    };
-  }, [spotifyPlayerReady]);
-
-  // The SDK may emit state events at irregular intervals. Poll the local player
-  // position while it owns playback so the progress display remains authoritative.
+  // The SDK emits track changes; read its local position for a smooth progress bar.
   useEffect(() => {
     if (!spotifyPlayerReady) return;
     const interval = window.setInterval(async () => {
@@ -397,7 +382,7 @@ export default function App() {
     return () => window.clearInterval(interval);
   }, [spotifyPlayerReady]);
 
-  // Desktop Sync Handler: user clicks "Đồng bộ Desktop"
+  // Transfer playback into the browser player when the user requests a sync.
   const handleSyncDesktop = useCallback(async () => {
     const userToken = getSpotifyUserToken();
     if (!userToken) {
@@ -413,29 +398,21 @@ export default function App() {
       setPlaybackSec(0);
       setSpotifyDesktopStatus('Spotify login required');
     } else {
-      const live = await fetchCurrentlyPlayingTrack();
-      if (live) {
-        setSpotifySource('desktop');
-        setPlaybackSec(live.progressSec);
-        setIsPlaying(live.isPlaying);
-        setCurrentTrack((previousTrack) => ({
-          id: `spotify-${live.trackId}`,
-          spotifyId: live.trackId,
-          title: live.title,
-          artist: live.artist,
-          album: live.album || 'Spotify Playback',
-          duration: `${Math.floor(live.durationSec / 60)}:${String(live.durationSec % 60).padStart(2, '0')}`,
-          durationSec: live.durationSec,
-          coffeePairing: 'Drip Drop Coffee',
-          genre: 'Spotify Desktop Stream',
-          coverUrl: live.coverUrl || previousTrack.coverUrl,
-          audioFeatures: previousTrack.spotifyId === live.trackId && previousTrack.audioFeaturesSource === 'rapidapi' ? previousTrack.audioFeatures : undefined,
-          audioFeaturesSource: previousTrack.spotifyId === live.trackId && previousTrack.audioFeaturesSource === 'rapidapi' ? 'rapidapi' : undefined,
-        }));
-      } else {
-        setIsPlaying(false);
-        setPlaybackSec(0);
-        setSpotifyDesktopStatus('No Spotify track is currently playing');
+      const player = spotifyPlayerRef.current;
+      const deviceId = spotifyDeviceIdRef.current;
+      if (!player || !deviceId) {
+        setSpotifyDesktopStatus('Spotify browser player is still connecting');
+        return;
+      }
+      try {
+        await player.activateElement();
+        const transferred = await transferSpotifyPlayback(deviceId, false);
+        if (!transferred) throw new Error('Spotify could not transfer playback to this browser');
+        setSpotifySource('web');
+        setSpotifyDesktopStatus('Spotify playback transferred to this browser');
+      } catch (error) {
+        console.warn('Could not transfer Spotify playback to the browser:', error);
+        setSpotifyDesktopStatus('Spotify playback could not be transferred');
       }
     }
   }, []);
@@ -877,20 +854,22 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 space-y-8 pb-36">
         {/* Hero Section: Live Soundstage Booth */}
-        <SoundstageHero
-          currentTrack={currentTrack}
-          isPlaying={isPlaying}
-          onTogglePlay={handleTogglePlay}
-          playbackSec={playbackSec}
-          onSeek={handleSeek}
-          onPairingClick={() => setIsPairingModalOpen(true)}
-          onSpotifyClick={() => handleOpenSpotify()}
-          onSyncDesktop={handleSyncDesktop}
-          spotifyDesktopStatus={spotifyDesktopStatus}
-          spotifySource={spotifySource}
-          language={language}
-          theme={theme}
-        />
+        <div ref={heroSectionRef}>
+          <SoundstageHero
+            currentTrack={currentTrack}
+            isPlaying={isPlaying}
+            onTogglePlay={handleTogglePlay}
+            playbackSec={playbackSec}
+            onSeek={handleSeek}
+            onPairingClick={() => setIsPairingModalOpen(true)}
+            onSpotifyClick={() => handleOpenSpotify()}
+            onSyncDesktop={handleSyncDesktop}
+            spotifyDesktopStatus={spotifyDesktopStatus}
+            spotifySource={spotifySource}
+            language={language}
+            theme={theme}
+          />
+        </div>
 
         {/* 2-Column Grid: 8 Cols Playlists / 4 Cols Philosophy & Requests Queue */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -934,9 +913,9 @@ export default function App() {
           }`}
         >
           <div className="flex flex-wrap items-center gap-3">
-            <span className={isLight ? 'text-black' : 'text-white'}>© 2025 Gate 7 Coffee Roastery.</span>
+            <span className={isLight ? 'text-black' : 'text-white'}>© 2026 Gate 7 Coffee Roastery.</span>
             <span>•</span>
-            <span>gate7.vn/music • {language === 'vi' ? 'Không gian kết nối qua từng tách cà phê' : 'Connecting through every cup of coffee'}</span>
+            <span>music.gate7.vn • {language === 'vi' ? 'Không gian kết nối qua từng tách cà phê' : 'Connecting through every cup of coffee'}</span>
           </div>
 
           <div className={`flex items-center gap-4 text-base ${isLight ? 'text-black' : 'text-gray-300'}`}>
@@ -978,39 +957,40 @@ export default function App() {
         </footer>
       </main>
 
-      {/* Persistent Bottom Audio Player Bar */}
-      <BottomPlayer
-        currentTrack={currentTrack}
-        isPlaying={isPlaying}
-        onTogglePlay={handleTogglePlay}
-        onNextTrack={handleNextTrack}
-        onPrevTrack={handlePrevTrack}
-        playbackSec={playbackSec}
-        onSeek={handleSeek}
-        isLiked={isLiked}
-        onToggleLike={handleToggleLike}
-        isShuffle={isShuffle}
-        onToggleShuffle={handleToggleShuffle}
-        isRepeat={isRepeat}
-        onToggleRepeat={handleToggleRepeat}
-        speakerZone={speakerZone}
-        onSelectSpeakerZone={setSpeakerZone}
-        volume={volume}
-        onChangeVolume={setVolume}
-        onOpenTrackDetail={() => {
-          const matched = timeSlots
-            .flatMap((s) => s.playlists)
-            .find((pl) => pl.tracks.some((t) => t.id === currentTrack.id));
-          if (matched) {
-            setSelectedPlaylistForModal(matched);
-          } else {
-            setSelectedPlaylistForModal(timeSlots[0].playlists[0]);
-          }
-        }}
-        onOpenSpotify={() => handleOpenSpotify()}
-        language={language}
-        theme={theme}
-      />
+      {showBottomPlayer && (
+        <BottomPlayer
+          currentTrack={currentTrack}
+          isPlaying={isPlaying}
+          onTogglePlay={handleTogglePlay}
+          onNextTrack={handleNextTrack}
+          onPrevTrack={handlePrevTrack}
+          playbackSec={playbackSec}
+          onSeek={handleSeek}
+          isLiked={isLiked}
+          onToggleLike={handleToggleLike}
+          isShuffle={isShuffle}
+          onToggleShuffle={handleToggleShuffle}
+          isRepeat={isRepeat}
+          onToggleRepeat={handleToggleRepeat}
+          speakerZone={speakerZone}
+          onSelectSpeakerZone={setSpeakerZone}
+          volume={volume}
+          onChangeVolume={setVolume}
+          onOpenTrackDetail={() => {
+            const matched = timeSlots
+              .flatMap((s) => s.playlists)
+              .find((pl) => pl.tracks.some((t) => t.id === currentTrack.id));
+            if (matched) {
+              setSelectedPlaylistForModal(matched);
+            } else {
+              setSelectedPlaylistForModal(timeSlots[0].playlists[0]);
+            }
+          }}
+          onOpenSpotify={() => handleOpenSpotify()}
+          language={language}
+          theme={theme}
+        />
+      )}
 
       {/* Modals & Screens */}
       <RequestModal
