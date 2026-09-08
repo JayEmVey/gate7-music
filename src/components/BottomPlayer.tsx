@@ -24,6 +24,7 @@ interface BottomPlayerProps {
   onOpenSpotify?: () => void;
   language: Language;
   theme?: 'dark' | 'light';
+  isAudioFeaturesLoading?: boolean;
 }
 
 export const BottomPlayer: React.FC<BottomPlayerProps> = ({
@@ -48,6 +49,7 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
   onOpenSpotify,
   language,
   theme = 'dark',
+  isAudioFeaturesLoading = false,
 }) => {
   const [showSpeakerMenu, setShowSpeakerMenu] = useState(false);
   const isLight = theme === 'light';
@@ -111,6 +113,12 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
             alt={currentTrack.title}
             className="w-full h-full object-cover transition-transform group-hover:scale-105"
           />
+
+          {isAudioFeaturesLoading && (
+            <div className="absolute inset-0 bg-black/55 flex items-center justify-center pointer-events-none" role="status" aria-label={language === 'vi' ? 'Đang phân tích âm thanh' : 'Analyzing audio'}>
+              <i className="fa-solid fa-spinner animate-spin text-[#FEBC11] text-sm"></i>
+            </div>
+          )}
 
           {/* Playing Animation: Animated Equalizer overlay on thumbnail */}
           {isPlaying ? (

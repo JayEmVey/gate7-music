@@ -11,8 +11,7 @@ export const SPOTIFY_SCOPE_VERSION = 'web-playback-playlists-v3';
 const PKCE_VERIFIER_KEY = 'spotify_pkce_verifier';
 const PKCE_STATE_KEY = 'spotify_oauth_state';
 const PKCE_REDIRECT_URI_KEY = 'spotify_oauth_redirect_uri';
-const RAPIDAPI_HOST = 'spotify-extended-audio-features-api.p.rapidapi.com';
-const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY?.trim();
+const AUDIO_ANALYZER_URL = import.meta.env.CLOUDFLARE_WORKER_URL?.trim();
 let spotifyRequestQueue: Promise<unknown> = Promise.resolve();
 let spotifyRateLimitUntil = 0;
 
@@ -221,30 +220,34 @@ export async function fetchSpotifySearchTracks(query: string): Promise<SpotifyPl
 }
 
 export async function fetchSpotifyTrackAudioFeatures(trackId: string): Promise<SpotifyTrackAudioFeatures | null> {
-  if (!trackId || !RAPIDAPI_KEY) return null;
+  if (!trackId || !AUDIO_ANALYZER_URL) return null;
 
   try {
-    const response = await fetch(`https://${RAPIDAPI_HOST}/v1/audio-features/${encodeURIComponent(trackId)}`, {
-      headers: {
-        'x-rapidapi-host': RAPIDAPI_HOST,
-        'x-rapidapi-key': RAPIDAPI_KEY,
-      },
-    });
+    const analyzerUrl = new URL(AUDIO_ANALYZER_URL);
+    analyzerUrl.searchParams.set('track_id', trackId);
+    const response = await fetch(analyzerUrl);
     if (!response.ok) return null;
     const data = await response.json();
-    if (!data || typeof data.tempo !== 'number') return null;
+    if (!data || typeof data.bpm !== 'number') return null;
+
+    const keyMatch = typeof data.key === 'string' ? data.key.match(/^([A-G](?:#|b)?)(?:\s+(major|minor))?$/i) : null;
+    const keyNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const normalizedKey = keyMatch?.[1]?.replace('b', '#');
+    const key = normalizedKey ? keyNames.indexOf(normalizedKey) : -1;
+    const mode = keyMatch?.[2]?.toLowerCase() === 'major' ? 1 : keyMatch?.[2] ? 0 : -1;
+    const energy = Number(data.energy ?? 0);
 
     return {
-      acousticness: Number(data.acousticness ?? 0),
-      danceability: Number(data.danceability ?? 0),
-      energy: Number(data.energy ?? 0),
-      instrumentalness: Number(data.instrumentalness ?? 0),
-      key: Number(data.key ?? -1),
-      liveness: Number(data.liveness ?? 0),
-      loudness: Number(data.loudness ?? 0),
-      mode: Number(data.mode ?? -1),
-      tempo: Number(data.tempo),
-      valence: Number(data.valence ?? 0),
+      acousticness: 0,
+      danceability: 0,
+      energy,
+      instrumentalness: 0,
+      key,
+      liveness: 0,
+      loudness: 0,
+      mode,
+      tempo: Number(data.bpm),
+      valence: 0.5,
     };
   } catch (error) {
     return null;

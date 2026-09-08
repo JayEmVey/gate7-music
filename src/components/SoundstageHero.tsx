@@ -14,6 +14,7 @@ interface SoundstageHeroProps {
   onSpotifyClick: () => void;
   spotifyDesktopStatus?: string;
   spotifySource?: 'desktop' | 'web';
+  isAudioFeaturesLoading?: boolean;
   language: Language;
   theme?: 'dark' | 'light';
 }
@@ -28,6 +29,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   onSpotifyClick,
   spotifyDesktopStatus,
   spotifySource = 'desktop',
+  isAudioFeaturesLoading = false,
   language,
   theme = 'dark',
 }) => {
@@ -47,7 +49,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
     return language === 'vi' ? 'Cân bằng' : 'Balanced Mood';
   };
 
-  const coffeePairing = getCoffeePairing(audioFeatures, 'Drip Drop Coffee', language);
+  const coffeePairing = getCoffeePairing(audioFeatures, 'Drip Drop Coffee', language, currentTrack.audioFeaturesSource);
 
   React.useEffect(() => {
     const updateDateTime = () => {
@@ -288,7 +290,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
               {audioFeatures && (
                 <>
-                  <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-[#FEBC11] text-[#0D0D0E]" title={currentTrack.audioFeaturesSource === 'estimated' ? 'Estimated until RapidAPI audio analysis is available' : 'RapidAPI tempo, key and mode'}>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-[#FEBC11] text-[#0D0D0E]" title={currentTrack.audioFeaturesSource === 'estimated' ? 'Estimated audio analysis' : 'Custom audio analyzer tempo, key and energy'}>
                     <i className="fa-solid fa-music"></i>
                     {Math.round(audioFeatures.tempo)} BPM • {keyLabel(audioFeatures)}{currentTrack.audioFeaturesSource === 'estimated' ? ' ~' : ''}
                   </span>
@@ -311,7 +313,14 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
                 </>
               )}
 
-              {!audioFeatures && (
+              {!audioFeatures && isAudioFeaturesLoading && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-[#FEBC11] text-[#0D0D0E]" role="status">
+                  <i className="fa-solid fa-spinner animate-spin"></i>
+                  {language === 'vi' ? 'Đang phân tích âm thanh...' : 'Analyzing audio...'}
+                </span>
+              )}
+
+              {!audioFeatures && !isAudioFeaturesLoading && (
                 <span className="inline-flex items-center gap-1.5 text-xs font-black border-2 border-black px-3 py-1 shadow-brutal bg-[#2A2A30] text-gray-300" title={language === 'vi' ? 'Spotify không cung cấp Audio Features cho bài này' : 'Spotify did not provide Audio Features for this track'}>
                   <i className="fa-solid fa-circle-info"></i>
                   {language === 'vi' ? 'Chưa có dữ liệu âm thanh' : 'Audio features unavailable'}

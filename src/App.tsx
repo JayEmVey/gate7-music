@@ -65,8 +65,8 @@ function toAppTrack(track: any, fallbackCover = '', previousTrack?: Track): Trac
     coffeePairing: 'Drip Drop Coffee',
     genre: 'Spotify Web Playback',
     coverUrl: track.album?.images?.[0]?.url || track.coverUrl || fallbackCover,
-    audioFeatures: track.audioFeatures || (previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'rapidapi' ? previousTrack.audioFeatures : undefined),
-    audioFeaturesSource: track.audioFeatures ? 'rapidapi' : previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'rapidapi' ? 'rapidapi' : undefined,
+    audioFeatures: track.audioFeatures || (previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'worker' ? previousTrack.audioFeatures : undefined),
+    audioFeaturesSource: track.audioFeatures ? 'worker' : previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'worker' ? 'worker' : undefined,
   };
 }
 
@@ -118,6 +118,7 @@ function getPersistedPlaybackState(): PersistedPlaybackState | null {
 export default function App() {
   const persistedPlayback = getPersistedPlaybackState();
   const [currentTrack, setCurrentTrack] = useState<Track>(persistedPlayback?.track || EMPTY_SPOTIFY_TRACK);
+  const currentTrackRef = useRef(currentTrack);
   const [isPlaying, setIsPlaying] = useState<boolean>(persistedPlayback?.isPlaying ?? false);
   const [playbackSec, setPlaybackSec] = useState<number>(persistedPlayback?.playbackSec ?? 0);
   const [likesCount, setLikesCount] = useState<number>(46);
@@ -140,6 +141,7 @@ export default function App() {
   const [spotifyAuthStatus, setSpotifyAuthStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
   const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('');
   const [spotifySource, setSpotifySource] = useState<'desktop' | 'web'>('web');
+  const [isAudioFeaturesLoading, setIsAudioFeaturesLoading] = useState(false);
   const spotifyPlayerRef = useRef<SpotifyWebPlaybackPlayer | null>(null);
   const spotifyDeviceIdRef = useRef<string | null>(null);
   const loadedPlaylistIdsRef = useRef(new Set<string>());
@@ -152,6 +154,10 @@ export default function App() {
   const heroSectionRef = useRef<HTMLDivElement | null>(null);
   const [showBottomPlayer, setShowBottomPlayer] = useState(false);
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
 
   useEffect(() => {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
@@ -336,7 +342,11 @@ export default function App() {
         isLocalPlaybackActiveRef.current = true;
         setSpotifySource('web');
         pendingRestoreRef.current = null;
-        const liveTrack = toAppTrack(state.track_window.current_track, currentTrack.coverUrl, currentTrack);
+        const liveTrack = toAppTrack(
+          state.track_window.current_track,
+          currentTrackRef.current.coverUrl,
+          currentTrackRef.current,
+        );
         setCurrentTrack(liveTrack);
         setPlaybackSec(Math.floor((state.position || 0) / 1000));
         setIsPlaying(!state.paused);
@@ -401,9 +411,10 @@ export default function App() {
     const trackId = currentTrack.spotifyId;
     if (!trackId) return;
 
-    if (currentTrack.audioFeaturesSource !== 'rapidapi') {
+    setIsAudioFeaturesLoading(true);
+    if (currentTrack.audioFeaturesSource !== 'worker') {
       setCurrentTrack((prev) => {
-        if (prev.spotifyId !== trackId || prev.audioFeaturesSource === 'rapidapi') return prev;
+        if (prev.spotifyId !== trackId || prev.audioFeaturesSource === 'worker') return prev;
         const { audioFeatures: _audioFeatures, audioFeaturesSource: _audioFeaturesSource, ...trackWithoutFeatures } = prev;
         return trackWithoutFeatures;
       });
@@ -412,8 +423,13 @@ export default function App() {
     fetchSpotifyTrackAudioFeatures(trackId).then((audioFeatures) => {
       if (!audioFeatures) return;
       setCurrentTrack((prev) => prev.spotifyId === trackId
-        ? { ...prev, audioFeatures, audioFeaturesSource: 'rapidapi' }
+        ? { ...prev, audioFeatures, audioFeaturesSource: 'worker' }
         : prev);
+    }).finally(() => {
+      setCurrentTrack((prev) => {
+        if (prev.spotifyId === trackId) setIsAudioFeaturesLoading(false);
+        return prev;
+      });
     });
   }, [currentTrack.spotifyId]);
 
@@ -830,6 +846,7 @@ export default function App() {
             onSpotifyClick={() => handleOpenSpotify()}
             spotifyDesktopStatus={spotifyDesktopStatus}
             spotifySource={spotifySource}
+            isAudioFeaturesLoading={isAudioFeaturesLoading}
             language={language}
             theme={theme}
           />
@@ -953,6 +970,7 @@ export default function App() {
           onOpenSpotify={() => handleOpenSpotify()}
           language={language}
           theme={theme}
+          isAudioFeaturesLoading={isAudioFeaturesLoading}
         />
       )}
 

@@ -24,7 +24,7 @@ export interface Track {
   coverUrl?: string;
   genre?: string;
   audioFeatures?: TrackAudioFeatures;
-  audioFeaturesSource?: 'rapidapi' | 'estimated';
+  audioFeaturesSource?: 'worker' | 'estimated';
 }
 
 export interface Playlist {

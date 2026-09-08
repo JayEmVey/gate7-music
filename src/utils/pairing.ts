@@ -1,7 +1,22 @@
 import { Language, TrackAudioFeatures } from '../types';
 
-export function getCoffeePairing(features: TrackAudioFeatures | undefined, fallback: string, language: Language): string {
+export function getCoffeePairing(
+  features: TrackAudioFeatures | undefined,
+  fallback: string,
+  language: Language,
+  source?: 'worker' | 'estimated',
+): string {
   if (!features) return language === 'vi' ? 'Chưa có dữ liệu âm thanh' : 'Audio features unavailable';
+
+  if (source === 'worker') {
+    if (features.energy >= 0.8 && features.tempo > 120) return 'Espresso (Hot/Iced)';
+    if (features.energy >= 0.6 && features.tempo >= 105) return 'Oreo Ice Blended';
+    if (features.energy < 0.35 && features.tempo < 100) return 'Matcha Latte';
+    if (features.energy < 0.4) return 'Jasmine Olong Milk Tea';
+    if (features.mode === 1 && features.tempo >= 105) return 'Mango Passion Fruit Smoothie';
+    if (features.mode === 1) return 'Macchiato Jasmin Olong Tea';
+    return 'Drip Drop Milk Coffee (Hot/Iced)';
+  }
 
   // Rules are ordered by the menu's strongest defining signal so overlapping
   // Spotify feature profiles still produce one stable recommendation.

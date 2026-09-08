@@ -26,6 +26,7 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
     currentTrack.audioFeatures,
     currentTrack.coffeePairing || 'Drip Drop Coffee',
     language,
+    currentTrack.audioFeaturesSource,
   );
 
   return (
