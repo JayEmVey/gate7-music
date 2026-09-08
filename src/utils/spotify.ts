@@ -3,10 +3,10 @@
 
 export const SPOTIFY_CONFIG = {
   clientId: 'b25c3d0a87e54a79ad8f3fe8ae961938',
-  scopes: 'streaming user-read-email user-read-private user-modify-playback-state playlist-read-private playlist-read-collaborative',
+  scopes: 'streaming user-read-email user-read-private user-read-playback-state user-read-currently-playing user-modify-playback-state playlist-read-private playlist-read-collaborative',
 };
 
-export const SPOTIFY_SCOPE_VERSION = 'web-playback-playlists-v3';
+export const SPOTIFY_SCOPE_VERSION = 'web-playback-playlists-v4';
 
 const PKCE_VERIFIER_KEY = 'spotify_pkce_verifier';
 const PKCE_STATE_KEY = 'spotify_oauth_state';
@@ -187,6 +187,33 @@ export interface SpotifyTrackAudioFeatures {
   mode: number;
   tempo: number;
   valence: number;
+}
+
+export interface SpotifyPlaybackState {
+  device?: { id?: string; name?: string; type?: string; is_active?: boolean };
+  is_playing: boolean;
+  progress_ms: number;
+  item?: any;
+  context?: { uri?: string; type?: string };
+  shuffle_state?: boolean;
+  repeat_state?: 'track' | 'context' | 'off';
+}
+
+export interface SpotifyQueueState {
+  currently_playing?: any;
+  queue?: any[];
+}
+
+export async function fetchSpotifyPlaybackState(): Promise<SpotifyPlaybackState | null> {
+  const response = await spotifyFetch('/me/player');
+  if (response.status === 204 || !response.ok) return null;
+  return response.json();
+}
+
+export async function fetchSpotifyQueue(): Promise<SpotifyQueueState | null> {
+  const response = await spotifyFetch('/me/player/queue');
+  if (!response.ok) return null;
+  return response.json();
 }
 
 export async function fetchSpotifySearchTracks(query: string): Promise<SpotifyPlaylistTrack[]> {

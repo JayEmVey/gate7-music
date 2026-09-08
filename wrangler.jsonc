@@ -32,6 +32,11 @@
 			"binding": "SPOTIFY_PLAYLIST_CACHE",
 			"id": "edf671b64f154b35afdfe9c241a5ce30",
 			"preview_id": "ffe06256e05e4de2be1c0f81d70a5c4a"
+		},
+		{
+			"binding": "SPOTIFY_PLAYBACK_STATE",
+			"id": "c33312316df44caaabc860dee351a597",
+			"preview_id": "a58e4ca94ee0472fae8b9d9daa0b48d7"
 		}
 	]
 }

@@ -19,6 +19,8 @@ import {
   fetchCachedPlaylistTracks,
   fetchSpotifySearchTracks,
   fetchSpotifyTrackAudioFeatures,
+  fetchSpotifyPlaybackState,
+  fetchSpotifyQueue,
   transferSpotifyPlayback,
   startSpotifyPlayback,
   pauseSpotifyPlayback,
@@ -141,6 +143,7 @@ export default function App() {
   const [spotifyAuthStatus, setSpotifyAuthStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
   const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('');
   const [spotifySource, setSpotifySource] = useState<'desktop' | 'web'>('web');
+  const [spotifyQueue, setSpotifyQueue] = useState<Track[]>([]);
   const [isAudioFeaturesLoading, setIsAudioFeaturesLoading] = useState(false);
   const spotifyPlayerRef = useRef<SpotifyWebPlaybackPlayer | null>(null);
   const spotifyDeviceIdRef = useRef<string | null>(null);
@@ -392,6 +395,86 @@ export default function App() {
     return () => window.clearInterval(interval);
   }, [spotifyPlayerReady]);
 
+  useEffect(() => {
+    if (spotifyAuthStatus !== 'connected') return;
+    let cancelled = false;
+    let playbackRequestActive = false;
+    let queueRequestActive = false;
+
+    const syncPlayback = async () => {
+      if (playbackRequestActive) return;
+      playbackRequestActive = true;
+      try {
+        const state = await fetchSpotifyPlaybackState();
+        if (cancelled || !state) return;
+
+        const currentItem = state.item;
+        const currentDeviceId = state.device?.id;
+        const isGate7Device = Boolean(currentDeviceId && currentDeviceId === spotifyDeviceIdRef.current);
+        setSpotifySource(isGate7Device ? 'web' : 'desktop');
+        setIsPlaying(Boolean(state.is_playing));
+        setPlaybackSec(Math.floor(Math.max(0, state.progress_ms || 0) / 1000));
+        if (typeof state.shuffle_state === 'boolean') setIsShuffle(state.shuffle_state);
+        if (state.repeat_state) setIsRepeat(state.repeat_state !== 'off');
+
+        if (currentItem?.id) {
+          setCurrentTrack((previousTrack) => {
+            const nextTrack = toAppTrack(currentItem, previousTrack.coverUrl, previousTrack);
+            return previousTrack.spotifyId === nextTrack.spotifyId
+              && previousTrack.title === nextTrack.title
+              && previousTrack.artist === nextTrack.artist
+              && previousTrack.durationSec === nextTrack.durationSec
+              ? previousTrack
+              : nextTrack;
+          });
+        }
+
+        const contextId = state.context?.type === 'playlist'
+          ? state.context.uri?.split(':').pop()
+          : undefined;
+        if (contextId) {
+          setTimeSlots((slots) => {
+            const matchingPlaylist = slots
+              .flatMap((slot) => slot.playlists)
+              .find((playlist) => playlist.spotifyId === contextId);
+            if (matchingPlaylist) setActivePlaylistId(matchingPlaylist.id);
+            return slots;
+          });
+        }
+      } catch (error) {
+        if (!cancelled) console.warn('Could not sync Spotify playback state:', error);
+      } finally {
+        playbackRequestActive = false;
+      }
+    };
+
+    const syncQueue = async () => {
+      if (queueRequestActive) return;
+      queueRequestActive = true;
+      try {
+        const state = await fetchSpotifyQueue();
+        if (cancelled || !state) return;
+        setSpotifyQueue((state.queue || [])
+          .filter((item: any) => item?.id && item.type !== 'episode')
+          .map((item: any) => toAppTrack(item)));
+      } catch (error) {
+        if (!cancelled) console.warn('Could not sync Spotify queue:', error);
+      } finally {
+        queueRequestActive = false;
+      }
+    };
+
+    void syncPlayback();
+    void syncQueue();
+    const playbackInterval = window.setInterval(() => void syncPlayback(), 2500);
+    const queueInterval = window.setInterval(() => void syncQueue(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(playbackInterval);
+      window.clearInterval(queueInterval);
+    };
+  }, [spotifyAuthStatus]);
+
   const handleOpenSpotify = (target?: SpotifyItemTarget) => {
     if (target) {
       setSpotifyChooserTarget(target);
@@ -585,6 +668,13 @@ export default function App() {
 
   const handlePlaySpecificTrack = async (track: Track, playlist: Playlist) => {
     setActivePlaylistId(playlist.id);
+    const playlistTrackIndex = playlist.tracks.findIndex((candidate) => candidate.spotifyId === track.spotifyId);
+    const playbackBody = playlist.spotifyId
+      ? {
+          context_uri: `spotify:playlist:${playlist.spotifyId}`,
+          ...(playlistTrackIndex >= 0 ? { offset: { position: playlistTrackIndex } } : {}),
+        }
+      : { uris: [`spotify:track:${track.spotifyId}`] };
     const player = spotifyPlayerRef.current;
     if (player && spotifyDeviceIdRef.current && track.spotifyId) {
       await player.activateElement();
@@ -594,7 +684,7 @@ export default function App() {
         return;
       }
       const started = await startSpotifyPlayback(spotifyDeviceIdRef.current, {
-        uris: [`spotify:track:${track.spotifyId}`],
+        ...playbackBody,
       });
       if (!started) {
         setSpotifyDesktopStatus('Spotify rejected this playback request');
@@ -606,7 +696,7 @@ export default function App() {
     if (track.spotifyId) {
       try {
         const started = await startSpotifyPlayback(spotifyDeviceIdRef.current || undefined, {
-          uris: [`spotify:track:${track.spotifyId}`],
+          ...playbackBody,
         });
         if (!started) throw new Error('Spotify rejected this playback request');
         setCurrentTrack(track);
@@ -968,6 +1058,7 @@ export default function App() {
             }
           }}
           onOpenSpotify={() => handleOpenSpotify()}
+          spotifyQueue={spotifyQueue}
           language={language}
           theme={theme}
           isAudioFeaturesLoading={isAudioFeaturesLoading}

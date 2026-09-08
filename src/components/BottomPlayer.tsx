@@ -22,6 +22,7 @@ interface BottomPlayerProps {
   onChangeVolume: (vol: number) => void;
   onOpenTrackDetail: () => void;
   onOpenSpotify?: () => void;
+  spotifyQueue: Track[];
   language: Language;
   theme?: 'dark' | 'light';
   isAudioFeaturesLoading?: boolean;
@@ -47,11 +48,13 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
   onChangeVolume,
   onOpenTrackDetail,
   onOpenSpotify,
+  spotifyQueue,
   language,
   theme = 'dark',
   isAudioFeaturesLoading = false,
 }) => {
   const [showSpeakerMenu, setShowSpeakerMenu] = useState(false);
+  const [showQueue, setShowQueue] = useState(false);
   const isLight = theme === 'light';
 
   const formatTime = (seconds: number) => {
@@ -272,6 +275,48 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
 
       {/* RIGHT: Volume, Lossless & Speaker Sync */}
       <div className="flex items-center justify-end gap-3.5 w-1/4 min-w-[200px] relative">
+        <div className="relative">
+          <button
+            onClick={() => setShowQueue((visible) => !visible)}
+            className={`flex items-center gap-2 text-xs font-black px-2.5 py-1 border-2 border-black shadow-brutal cursor-pointer transition-colors ${
+              isLight ? 'bg-white text-black hover:bg-gray-100' : 'bg-[#202026] hover:bg-[#282830] text-gray-200'
+            }`}
+            title={language === 'vi' ? 'Hàng đợi Spotify' : 'Spotify queue'}
+          >
+            <i className="fa-solid fa-list"></i>
+            <span className="hidden xl:inline text-[11px]">QUEUE {spotifyQueue.length}</span>
+          </button>
+
+          {showQueue && (
+            <div
+              className={`absolute bottom-full right-0 mb-3 w-72 border-2 border-black shadow-brutal-xl p-2 z-50 ${
+                isLight ? 'bg-white text-black' : 'bg-[#1A1A1E] text-white border-[#FEBC11]'
+              }`}
+            >
+              <div className={`text-[10px] font-black uppercase px-2 py-1 border-b ${isLight ? 'border-black/20' : 'text-[#FEBC11] border-[#2E2E38]'}`}>
+                {language === 'vi' ? 'HÀNG ĐỢI SPOTIFY' : 'SPOTIFY QUEUE'}
+              </div>
+              {spotifyQueue.length > 0 ? (
+                <div className="max-h-64 overflow-y-auto">
+                  {spotifyQueue.slice(0, 12).map((track, index) => (
+                    <div key={`${track.spotifyId || track.id}-${index}`} className="flex items-center gap-2 px-2 py-1.5 border-b border-black/10 last:border-0">
+                      <span className="text-[10px] font-black text-[#FEBC11] w-4">{index + 1}</span>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold truncate">{track.title}</div>
+                        <div className={`text-[10px] truncate ${isLight ? 'text-gray-600' : 'text-gray-400'}`}>{track.artist}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={`px-2 py-4 text-xs font-bold ${isLight ? 'text-gray-600' : 'text-gray-400'}`}>
+                  {language === 'vi' ? 'Spotify không có bài tiếp theo.' : 'Spotify has no upcoming tracks.'}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <button
           onClick={onOpenSpotify}
           className="hidden sm:inline-flex items-center gap-1.5 text-xs font-black bg-[#FEBC11] text-[#0D0D0E] border-2 border-black px-2.5 py-1 shadow-brutal hover:bg-yellow-400 transition-colors cursor-pointer"
