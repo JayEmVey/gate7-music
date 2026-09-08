@@ -1,5 +1,6 @@
 import React from 'react';
 import { SpeakerZone, Language } from '../types';
+import { useModalBehavior } from './useModalBehavior';
 
 interface SpotifySyncModalProps {
   isOpen: boolean;
@@ -20,18 +21,25 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
   onChangeVolume,
   language,
 }) => {
+  useModalBehavior(isOpen, onClose);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-xl bg-[#18181C] border-4 border-[#1DB954] shadow-brutal-xl p-6 sm:p-7 overflow-y-auto max-h-[90vh] text-gray-100"
+        className="relative w-full max-w-xl max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] bg-[#18181C] border-4 border-[#1DB954] shadow-brutal-xl p-4 sm:p-7 overflow-y-auto overflow-x-hidden text-gray-100"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sync-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 bg-[#222018] hover:bg-[#1DB954] hover:text-[#0D0D0E] border-2 border-[#1DB954] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal"
+          type="button"
+          aria-label={language === 'vi' ? 'Đóng đồng bộ Spotify' : 'Close Spotify sync'}
+          className="absolute top-4 right-4 z-20 w-8 h-8 bg-[#222018] hover:bg-[#1DB954] hover:text-[#0D0D0E] border-2 border-[#1DB954] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal"
         >
           ✕
         </button>
@@ -42,7 +50,7 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
             <i className="fa-brands fa-spotify"></i>
             {language === 'vi' ? 'SPOTIFY SOUNDSTAGE INTEGRATION' : 'SPOTIFY SOUNDSTAGE INTEGRATION'}
           </div>
-          <h2 className="text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+          <h2 id="sync-modal-title" className="text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
             <span>{language === 'vi' ? 'Đồng Bộ Âm Thanh Quán' : 'Roastery Soundstage Sync'}</span>
             <span className="w-2.5 h-2.5 rounded-full bg-[#1ed760] animate-ping"></span>
           </h2>

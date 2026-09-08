@@ -2,6 +2,7 @@ import React from 'react';
 import { Playlist, Track, Language } from '../types';
 import { DEFAULT_TRACK_COVER, getTrackCover } from '../data';
 import { SpotifyItemTarget } from './SpotifyChooserModal';
+import { useModalBehavior } from './useModalBehavior';
 
 interface PlaylistDetailModalProps {
   playlist: Playlist | null;
@@ -26,20 +27,27 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
   onOpenSpotify,
   language,
 }) => {
+  useModalBehavior(isOpen, onClose);
+
   if (!isOpen || !playlist) return null;
 
   const playlistCover = playlist.coverUrl || playlist.tracks.find((track) => track.coverUrl)?.coverUrl || DEFAULT_TRACK_COVER;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-2xl bg-[#18181C] border-4 border-[#FEBC11] shadow-brutal-xl p-6 sm:p-8 overflow-y-auto max-h-[90vh] text-gray-100"
+        className="relative w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] bg-[#18181C] border-4 border-[#FEBC11] shadow-brutal-xl p-4 sm:p-8 overflow-y-auto overflow-x-hidden text-gray-100"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="playlist-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 w-8 h-8 bg-[#222018] hover:bg-[#FEBC11] hover:text-[#0D0D0E] border-2 border-[#FEBC11] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal"
+          type="button"
+          aria-label={language === 'vi' ? 'Đóng playlist' : 'Close playlist'}
+          className="absolute top-5 right-5 z-20 w-8 h-8 bg-[#222018] hover:bg-[#FEBC11] hover:text-[#0D0D0E] border-2 border-[#FEBC11] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal"
         >
           ✕
         </button>
@@ -61,7 +69,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
                 {playlist.duration} • {playlist.trackCount} {language === 'vi' ? 'bài hát' : 'tracks'}
               </span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight">
+            <h2 id="playlist-modal-title" className="text-2xl sm:text-3xl font-black uppercase text-white tracking-tight">
               {playlist.title}
             </h2>
             <p className="text-xs sm:text-sm text-gray-300 font-medium">

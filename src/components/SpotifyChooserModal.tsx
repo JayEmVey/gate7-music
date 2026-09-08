@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ExternalLink, Music2, Disc, Copy, Check, X, Laptop } from 'lucide-react';
 import { SpotifyItemTarget, buildSpotifyUrl, buildSpotifyAppUri } from '../utils/spotify';
 import { Language, Theme } from '../types';
+import { useModalBehavior } from './useModalBehavior';
 
 export type { SpotifyItemTarget };
 
@@ -21,6 +22,8 @@ export const SpotifyChooserModal: React.FC<SpotifyChooserModalProps> = ({
   theme = 'dark',
 }) => {
   const [copied, setCopied] = useState(false);
+
+  useModalBehavior(isOpen, onClose);
 
   if (!isOpen || !target) return null;
 
@@ -51,14 +54,15 @@ export const SpotifyChooserModal: React.FC<SpotifyChooserModalProps> = ({
   const isPlaylist = target.type === 'playlist';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
       <div
-        className={`w-full max-w-md border-3 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-6 transition-colors ${
+        className={`w-full max-w-md max-h-[calc(100dvh-1rem)] overflow-y-auto border-3 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-4 sm:p-6 transition-colors ${
           isLight ? 'bg-white text-black' : 'bg-[#18181C] text-white'
         }`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="spotify-modal-title"
+        onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b-2 border-black">

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Track, Language } from '../types';
 import { getTrackCover } from '../data';
+import { useModalBehavior } from './useModalBehavior';
 
 interface SearchResultsModalProps {
   query: string;
@@ -35,29 +36,23 @@ export const SearchResultsModal: React.FC<SearchResultsModalProps> = ({
     setSearchInput(query);
   }, [query]);
 
-  React.useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useModalBehavior(isOpen, onClose);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-2xl bg-[#18181C] border-4 border-[#FEBC11] shadow-brutal-xl p-6 sm:p-8 overflow-y-auto max-h-[90vh] text-gray-100"
+        className="relative w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] bg-[#18181C] border-4 border-[#FEBC11] shadow-brutal-xl p-4 sm:p-8 overflow-y-auto overflow-x-hidden text-gray-100"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="search-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-5 right-5 w-8 h-8 bg-[#222018] hover:bg-[#FEBC11] hover:text-[#0D0D0E] border-2 border-[#FEBC11] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal"
+          className="absolute top-5 right-5 z-20 w-8 h-8 bg-[#222018] hover:bg-[#FEBC11] hover:text-[#0D0D0E] border-2 border-[#FEBC11] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal"
           aria-label={language === 'vi' ? 'Đóng kết quả tìm kiếm' : 'Close search results'}
         >
           ✕
@@ -65,7 +60,7 @@ export const SearchResultsModal: React.FC<SearchResultsModalProps> = ({
 
         <div className="border-b-2 border-[#2E2E38] pb-5 mb-5 pr-10">
           <span className="text-[10px] font-black uppercase tracking-wider text-[#FEBC11]">
-            {language === 'vi' ? 'KẾT QUẢ TÌM KIẾM' : 'SEARCH RESULTS'}
+            <span id="search-modal-title">{language === 'vi' ? 'KẾT QUẢ TÌM KIẾM' : 'SEARCH RESULTS'}</span>
           </span>
           <form
             onSubmit={(event) => {

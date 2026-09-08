@@ -666,6 +666,24 @@ export default function App() {
     }
   };
 
+  const handleOpenCurrentTrack = () => {
+    const matchedPlaylist = timeSlots
+      .flatMap((slot) => slot.playlists)
+      .find((playlist) => playlist.tracks.some((track) => (
+        track.id === currentTrack.id
+        || (track.spotifyId && currentTrack.spotifyId && track.spotifyId === currentTrack.spotifyId)
+      )));
+
+    if (matchedPlaylist) {
+      setIsSearchModalOpen(false);
+      setSelectedPlaylistForModal(matchedPlaylist);
+      return;
+    }
+
+    setSelectedPlaylistForModal(null);
+    void handleSearchSubmit(currentTrack.title);
+  };
+
   const handlePlaySpecificTrack = async (track: Track, playlist: Playlist) => {
     setActivePlaylistId(playlist.id);
     const playlistTrackIndex = playlist.tracks.findIndex((candidate) => candidate.spotifyId === track.spotifyId);
@@ -1047,16 +1065,7 @@ export default function App() {
           onSelectSpeakerZone={setSpeakerZone}
           volume={volume}
           onChangeVolume={setVolume}
-          onOpenTrackDetail={() => {
-            const matched = timeSlots
-              .flatMap((s) => s.playlists)
-              .find((pl) => pl.tracks.some((t) => t.id === currentTrack.id));
-            if (matched) {
-              setSelectedPlaylistForModal(matched);
-            } else {
-              setSelectedPlaylistForModal(timeSlots[0].playlists[0]);
-            }
-          }}
+          onOpenTrackDetail={handleOpenCurrentTrack}
           onOpenSpotify={() => handleOpenSpotify()}
           spotifyQueue={spotifyQueue}
           language={language}

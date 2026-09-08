@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { RequestTicket, Language } from '../types';
+import { useModalBehavior } from './useModalBehavior';
 
 interface RequestModalProps {
   isOpen: boolean;
@@ -20,6 +21,8 @@ export const RequestModal: React.FC<RequestModalProps> = ({
   const [drink, setDrink] = useState('Cà phê Muối');
   const [note, setNote] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+
+  useModalBehavior(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -58,15 +61,20 @@ export const RequestModal: React.FC<RequestModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-lg bg-[#18181C] border-4 border-[#FEBC11] shadow-brutal-xl p-6 sm:p-7 overflow-y-auto max-h-[90vh] text-gray-100"
+        className="relative w-full max-w-lg max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] bg-[#18181C] border-4 border-[#FEBC11] shadow-brutal-xl p-4 sm:p-7 overflow-y-auto overflow-x-hidden text-gray-100"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="request-modal-title"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 bg-[#222018] hover:bg-[#FEBC11] hover:text-[#0D0D0E] border-2 border-[#FEBC11] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal"
+          type="button"
+          aria-label={language === 'vi' ? 'Đóng cửa sổ yêu cầu bài hát' : 'Close song request window'}
+          className="absolute top-4 right-4 z-20 w-8 h-8 bg-[#222018] hover:bg-[#FEBC11] hover:text-[#0D0D0E] border-2 border-[#FEBC11] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal"
         >
           ✕
         </button>
@@ -81,7 +89,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
             <i className="fa-solid fa-flask"></i>
             {language === 'vi' ? 'THỬ NGHIỆM' : 'TRIAL MODE'}
           </div>
-          <h2 className="text-2xl font-black uppercase tracking-tight text-white">
+          <h2 id="request-modal-title" className="text-2xl font-black uppercase tracking-tight text-white">
             {language === 'vi' ? 'Gửi Bài Bạn Muốn Nghe' : 'Request Your Song'}
           </h2>
           <p className="text-xs text-gray-300 font-medium">
