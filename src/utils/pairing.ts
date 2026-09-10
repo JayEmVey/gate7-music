@@ -75,7 +75,13 @@ export function getCoffeePairing(
     if (acousticness > 0.60 && valence >= 0.30 && valence <= 0.55) return 'Salted Plum Tea';
     if (acousticness > 0.60 && valence > 0.60) return 'Honey Lemon Juice';
 
-    return fallback;
+    // ── Catch-all (worker): always return a real COFFEE_PAIRINGS drink name ──
+    if (energy >= 0.70) return 'Espresso (Hot/Iced)';
+    if (energy >= 0.55) return 'Espresso with Milk (Hot/Iced)';
+    if (acousticness >= 0.50) return 'Drip Drop Milk Coffee (Hot/Iced)';
+    if (valence >= 0.60) return 'Latte (Hot/Iced)';
+    if (instrumentalness >= 0.30) return 'Matcha Latte';
+    return 'Cappuccino (Hot/Iced)';
   }
 
   // ─── Estimated / non-worker path ─────────────────────────────────────────
@@ -133,5 +139,13 @@ export function getCoffeePairing(
   if (acousticness > 0.60 && valence > 0.30 && valence < 0.55) return 'Salted Plum Tea';
   if (acousticness > 0.60 && valence > 0.60) return 'Honey Lemon Juice';
 
-  return fallback;
+  // ── Catch-all: every feature profile must resolve to a real drink name ──
+  // These broad rules fire when no specific threshold above matched, ensuring
+  // the returned string always matches a COFFEE_PAIRINGS `drink` field.
+  if (energy >= 0.70) return 'Espresso (Hot/Iced)';
+  if (energy >= 0.55) return 'Espresso with Milk (Hot/Iced)';
+  if (acousticness >= 0.50) return 'Drip Drop Milk Coffee (Hot/Iced)';
+  if (valence >= 0.60) return 'Latte (Hot/Iced)';
+  if (instrumentalness >= 0.30) return 'Matcha Latte';
+  return 'Cappuccino (Hot/Iced)';
 }

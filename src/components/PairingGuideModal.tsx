@@ -70,11 +70,15 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
 
   const recommendedDrink = getCoffeePairing(
     currentTrack.audioFeatures,
-    currentTrack.coffeePairing || 'Drip Drop Coffee',
+    // Fallback must match a real COFFEE_PAIRINGS drink name so the card lookup
+    // always succeeds. 'Drip Drop Milk Coffee (Hot/Iced)' is the default.
+    'Drip Drop Milk Coffee (Hot/Iced)',
     language,
     currentTrack.audioFeaturesSource,
   );
   const recommendedPairing = COFFEE_PAIRINGS.find((item) => item.drink === recommendedDrink);
+  // True "no features" state — getCoffeePairing returns the i18n "unavailable" string
+  const hasNoFeatures = !currentTrack.audioFeatures;
 
   const toggleCategory = (cat: string) => {
     setExpandedCategories((prev) => {
@@ -147,22 +151,26 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
               {language === 'vi' ? 'Đề xuất cho bạn' : 'Recommended for you'}
             </span>
           </div>
-          <div className="mt-2 text-lg font-black uppercase text-white">{recommendedDrink}</div>
+          <div className="mt-2 text-lg font-black uppercase text-white">{hasNoFeatures ? (language === 'vi' ? 'Chưa có dữ liệu âm thanh' : 'Audio features unavailable') : recommendedDrink}</div>
           <div className="mt-1 text-xs font-bold text-[#FEBC11]">
-            {recommendedPairing?.bestGenre || (language === 'vi' ? 'Đang chờ dữ liệu âm thanh' : 'Waiting for audio data')}
-          </div>
-          <p className="mt-3 text-xs leading-relaxed text-gray-200">
             {recommendedPairing
               ? language === 'vi'
-                ? `Vì ${currentTrack.title} có cấu hình âm thanh gần với nhóm ${recommendedPairing.bestGenre.toLowerCase()}. ${recommendedPairing.description}`
+                ? (recommendedPairing.bestGenreVi ?? recommendedPairing.bestGenre)
+                : recommendedPairing.bestGenre
+              : (language === 'vi' ? 'Đang chờ dữ liệu âm thanh...' : 'Waiting for audio data...')}
+          </div>
+          <p className="mt-3 text-xs leading-relaxed text-gray-200">
+            {recommendedPairing && !hasNoFeatures
+              ? language === 'vi'
+                ? `${currentTrack.title} có cấu hình âm thanh gần với nhóm ${(recommendedPairing.bestGenreVi ?? recommendedPairing.bestGenre).toLowerCase()}. ${recommendedPairing.descriptionVi ?? recommendedPairing.description}`
                 : `${currentTrack.title} matches the ${recommendedPairing.bestGenre.toLowerCase()} profile. ${recommendedPairing.description}`
               : language === 'vi'
                 ? 'Bài hát này chưa có đủ dữ liệu Audio Features để giải thích cặp hòa âm.'
                 : 'This track does not have enough Audio Features data to explain a sonic pair yet.'}
           </p>
-          {recommendedPairing && (
+          {recommendedPairing && !hasNoFeatures && (
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              {recommendedPairing.tags.map((tag) => (
+              {(language === 'vi' ? (recommendedPairing.tagsVi ?? recommendedPairing.tags) : recommendedPairing.tags).map((tag) => (
                 <span key={tag} className="bg-[#141416] px-1.5 py-1 text-[9px] font-bold text-gray-300 border border-[#3E3E4C]">
                   #{tag}
                 </span>
@@ -214,7 +222,7 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
             if (drinks.length === 0) return null;
             const meta = CATEGORY_META[category];
             const isExpanded = expandedCategories.has(category);
-            const hasRecommended = drinks.some((d) => d.drink === recommendedDrink);
+            const hasRecommended = !hasNoFeatures && drinks.some((d) => d.drink === recommendedDrink);
 
             return (
               <div
@@ -248,8 +256,7 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
                         <div className="text-[10px] font-medium text-gray-400 leading-tight truncate">
                           {meta.labelVi}
                         </div>
-                      )}
-                    </div>
+                      )}                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -295,13 +302,13 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
                             </div>
 
                             <p className="text-xs text-gray-300 font-medium leading-relaxed mb-3">
-                              {item.description}
+                              {language === 'vi' ? (item.descriptionVi ?? item.description) : item.description}
                             </p>
                           </div>
 
                           <div className="pt-3 border-t border-[#2A2A34] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                             <div className="flex flex-wrap gap-1">
-                              {item.tags.map((t) => (
+                              {(language === 'vi' ? (item.tagsVi ?? item.tags) : item.tags).map((t) => (
                                 <span key={t} className="text-[9px] bg-[#141416] text-gray-400 px-1.5 py-0.5 border border-[#2E2E38]">
                                   #{t}
                                 </span>

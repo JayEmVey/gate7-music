@@ -686,46 +686,66 @@ export default function App() {
 
   const handlePlaySpecificTrack = async (track: Track, playlist: Playlist) => {
     setActivePlaylistId(playlist.id);
-    const playlistTrackIndex = playlist.tracks.findIndex((candidate) => candidate.spotifyId === track.spotifyId);
-    const playbackBody = playlist.spotifyId
+
+    // Only use context_uri for real Spotify playlists (not synthetic ones like
+    // search results whose spotifyId is a local key, not a real Spotify ID).
+    const isRealSpotifyPlaylist = playlist.spotifyId
+      && playlist.spotifyId !== 'search-results'
+      && !playlist.spotifyId.startsWith('pl-')
+      && playlist.spotifyId.length > 10;
+
+    const playlistTrackIndex = isRealSpotifyPlaylist
+      ? playlist.tracks.findIndex((candidate) => candidate.spotifyId === track.spotifyId)
+      : -1;
+
+    const playbackBody: Record<string, unknown> = isRealSpotifyPlaylist
       ? {
           context_uri: `spotify:playlist:${playlist.spotifyId}`,
           ...(playlistTrackIndex >= 0 ? { offset: { position: playlistTrackIndex } } : {}),
         }
       : { uris: [`spotify:track:${track.spotifyId}`] };
-    const player = spotifyPlayerRef.current;
-    if (player && spotifyDeviceIdRef.current && track.spotifyId) {
-      await player.activateElement();
-      const transferred = await transferSpotifyPlayback(spotifyDeviceIdRef.current, false);
-      if (!transferred) {
-        setSpotifyDesktopStatus('Spotify browser player is unavailable');
-        return;
-      }
-      const started = await startSpotifyPlayback(spotifyDeviceIdRef.current, {
-        ...playbackBody,
-      });
-      if (!started) {
-        setSpotifyDesktopStatus('Spotify rejected this playback request');
-        return;
-      }
-      pendingRestoreRef.current = null;
+
+    if (!track.spotifyId) {
+      setSpotifyDesktopStatus('No Spotify ID for this track');
       return;
     }
-    if (track.spotifyId) {
+
+    const player = spotifyPlayerRef.current;
+    const deviceId = spotifyDeviceIdRef.current;
+
+    // Path 1: SDK player is ready — activate, transfer, then play
+    if (player && deviceId) {
       try {
-        const started = await startSpotifyPlayback(spotifyDeviceIdRef.current || undefined, {
-          ...playbackBody,
-        });
-        if (!started) throw new Error('Spotify rejected this playback request');
-        setCurrentTrack(track);
-        setPlaybackSec(0);
-        setIsPlaying(true);
+        await player.activateElement();
+        const transferred = await transferSpotifyPlayback(deviceId, false);
+        if (!transferred) {
+          setSpotifyDesktopStatus('Spotify browser player is unavailable');
+          return;
+        }
+        const started = await startSpotifyPlayback(deviceId, playbackBody);
+        if (!started) {
+          setSpotifyDesktopStatus('Spotify rejected this playback request');
+          return;
+        }
+        pendingRestoreRef.current = null;
         return;
       } catch (error) {
-        console.warn('Could not start selected Spotify track:', error);
+        console.warn('Could not start selected Spotify track via SDK:', error);
+        // Fall through to remote-control path
       }
     }
-    setSpotifyDesktopStatus('Spotify player is still connecting');
+
+    // Path 2: No local SDK — try remote-control play on whatever device is active
+    try {
+      const started = await startSpotifyPlayback(deviceId || undefined, playbackBody);
+      if (!started) throw new Error('Spotify rejected this playback request');
+      setCurrentTrack(track);
+      setPlaybackSec(0);
+      setIsPlaying(true);
+    } catch (error) {
+      console.warn('Could not start selected Spotify track:', error);
+      setSpotifyDesktopStatus('Spotify player is still connecting');
+    }
   };
 
   const handleNextTrack = async () => {
