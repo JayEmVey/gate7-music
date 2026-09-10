@@ -110,7 +110,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
     <section
       id="soundstage-hero-banner"
       aria-label="Đang phát tại quán"
-      className={`relative overflow-hidden p-6 lg:p-8 transition-colors duration-200 ${
+      className={`relative overflow-hidden p-4 md:p-6 lg:p-8 transition-colors duration-200 ${
         isLight
           ? 'bg-white border-3 border-black shadow-[6px_6px_0px_#000000] text-black'
           : 'bg-[#18181C] border-4 border-[#2A2A34] shadow-brutal-xl text-white'
@@ -124,15 +124,15 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
       )}
 
       {/* Top Badges / High-Energy Live Tag */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 relative z-10">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#FEBC11] text-[#0D0D0E] text-xs font-black uppercase tracking-wider border-2 border-black shadow-brutal sticker-rotate-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-4 md:mb-6 relative z-10">
+        <div className="flex flex-wrap items-center gap-1.5 md:gap-2.5">
+          <span className="inline-flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-[#FEBC11] text-[#0D0D0E] text-[10px] md:text-xs font-black uppercase tracking-wider border-2 border-black shadow-brutal sticker-rotate-1">
+            <span className="w-2 h-2 rounded-full bg-red-600 animate-ping"></span>
             <i className="fa-solid fa-broadcast-tower"></i>
             {language === 'vi' ? 'ON AIR: ĐANG PHÁT TẠI QUÁN' : 'ON AIR: LIVE IN STORE'}
           </span>
           <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border-2 border-black shadow-brutal ${
+            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border-2 border-black shadow-brutal ${
               isLight ? 'bg-white text-black' : 'bg-[#202026] text-gray-200 border-[#33333E]'
             }`}
           >
@@ -142,7 +142,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
           {dateTimeStr && (
             <span
               id="datetime"
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold border-2 border-black shadow-brutal ${
+              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold border-2 border-black shadow-brutal ${
                 isLight ? 'bg-[#F9FAFB] text-gray-800' : 'bg-[#1C1C22] text-[#FEBC11] border-[#363644]'
               }`}
             >
@@ -162,7 +162,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
             <div
               id="hero-track-cover"
               onClick={onTogglePlay}
-              className={`w-44 h-44 sm:w-52 sm:h-52 md:w-56 md:h-56 aspect-square rounded-none border-4 border-black shadow-brutal-xl relative overflow-hidden bg-black cursor-pointer select-none transition-transform duration-300 group-hover:-translate-y-1 ${
+              className={`w-36 h-36 sm:w-44 sm:h-44 md:w-56 md:h-56 aspect-square rounded-none border-4 border-black shadow-brutal-xl relative overflow-hidden bg-black cursor-pointer select-none transition-transform duration-300 group-hover:-translate-y-1 ${
                 isPlaying ? 'ring-2 ring-[#FEBC11]' : ''
               }`}
               title={
@@ -273,7 +273,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
             </div>
 
             <h1
-              className={`text-3xl md:text-5xl font-black tracking-tight uppercase leading-none ${
+              className={`text-2xl sm:text-3xl md:text-5xl font-black tracking-tight uppercase leading-none ${
                 isLight ? 'text-black' : 'text-white'
               }`}
             >

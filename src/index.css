@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+/* Prevent iOS Safari from auto-zooming text and inputs */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Prevent horizontal overflow on all screens */
+body {
+  overflow-x: hidden;
+}
+
+/* Make inputs/selects not trigger zoom on iOS (requires font-size >= 16px equivalent) */
+input, select, textarea {
+  font-size: max(16px, 1em);
+}
+
 @layer utilities {
   .shadow-brutal {
     box-shadow: 4px 4px 0px #000000;

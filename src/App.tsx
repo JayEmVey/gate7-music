@@ -923,7 +923,7 @@ export default function App() {
 
   return (
     <div
-      className={`font-sans antialiased min-h-screen flex flex-col selection:bg-[#FEBC11] selection:text-black transition-colors duration-200 ${
+      className={`font-sans antialiased min-h-screen flex flex-col selection:bg-[#FEBC11] selection:text-black transition-colors duration-200 overflow-x-hidden touch-manipulation ${
         isLight ? 'bg-[#F7F7F4] text-black' : 'bg-[#121214] text-gray-100'
       }`}
     >
@@ -941,7 +941,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 space-y-8 pb-36">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 space-y-8 pb-28 md:pb-36">
         {/* Hero Section: Live Soundstage Booth */}
         <div ref={heroSectionRef}>
           <SoundstageHero

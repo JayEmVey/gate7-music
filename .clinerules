@@ -1,0 +1,4 @@
+CRITICAL LOCAL MODEL TOOL RULES:
+1. ONLY call ONE tool at a time. NEVER output multiple tool calls in a single message.
+2. ALWAYS use relative paths from the project root (e.g., "src/styles/global.css"). NEVER use absolute paths (e.g., "/Users/...").
+3. Wait for the user or system to respond with tool results before requesting the next tool call.

@@ -116,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
             : 'bg-[#17171A] border-b-2 border-[#2A2A32] shadow-xl text-white'
         }`}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 md:gap-4">
           {/* Gate 7 Official Brand Logo - Gently placed directly on the page */}
           <div className="flex items-center shrink-0">
             <div
@@ -131,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'https://gate7.vn/images/logo-color-white-bg1.webp'
                     : 'https://gate7.vn/images/logo-color-black-bg1-large.webp'
                 }
-                className={`h-9 md:h-11 w-auto object-contain transition-all ${
+                className={`h-8 md:h-11 w-auto object-contain transition-all ${
                   isLight ? 'mix-blend-multiply' : 'mix-blend-screen'
                 }`}
                 referrerPolicy="no-referrer"
@@ -139,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Search Bar */}
+          {/* Search Bar — hidden on mobile, visible from md */}
           <div className="flex-1 max-w-xl hidden md:flex items-center gap-2">
             <div className="relative w-full">
               <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isLight ? 'text-gray-600' : 'text-gray-400'}`} />
@@ -173,37 +173,24 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
+          {/* Mobile Search Icon — visible only on mobile */}
+          <button
+            onClick={onSearchSubmit}
+            className={`flex md:hidden items-center justify-center w-8 h-8 border-2 border-black shadow-brutal shrink-0 ${
+              isLight ? 'bg-white text-black' : 'bg-[#1F1F24] text-white'
+            }`}
+            title={language === 'vi' ? 'Tìm kiếm' : 'Search'}
+          >
+            <Search className="w-3.5 h-3.5" />
+          </button>
+
           {/* Quick Action Controls */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            {/* Request Button 
-            <button
-              id="header-request-btn"
-              onClick={onRequestClick}
-              className="flex items-center gap-1.5 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] font-black text-xs px-3.5 py-2 border-2 border-black shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all uppercase tracking-wide cursor-pointer"
-            >
-              <i className="fa-solid fa-hand-holding-heart text-sm"></i>
-              <span className="hidden sm:inline">{language === 'vi' ? 'Yêu cầu bài' : 'Song Request'}</span>
-              <span className="sm:hidden">Request</span>
-            </button> */}
-
-            {/* Auto-Connected Spotify Indicator 
-            <div
-              className={`hidden sm:flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1.5 border-2 border-black shadow-brutal select-none ${
-                isLight
-                  ? 'bg-[#E8F8F0] text-[#0A7336]'
-                  : 'bg-[#1DB954]/15 text-[#1ed760]'
-              }`}
-              title="Spotify Connected (Gate 7 Roastery)"
-            >
-              <i className="fa-brands fa-spotify text-sm text-[#1DB954]"></i>
-              <span className="hidden lg:inline">Gate 7 Spotify</span>
-            </div> */}
-
+          <div className="flex items-center gap-1.5 md:gap-2.5 shrink-0">
             {/* Language Toggle */}
             <div className={`flex border-2 border-black p-0.5 font-black text-xs shadow-brutal ${isLight ? 'bg-white' : 'bg-[#141416]'}`}>
               <button
                 onClick={() => setLanguage('vi')}
-                className={`px-2 py-1 transition-all ${
+                className={`px-1.5 md:px-2 py-1 transition-all ${
                   language === 'vi'
                     ? 'bg-[#FEBC11] text-[#0D0D0E] shadow-sm'
                     : isLight
@@ -215,7 +202,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
               <button
                 onClick={() => setLanguage('en')}
-                className={`px-2 py-1 transition-all ${
+                className={`px-1.5 md:px-2 py-1 transition-all ${
                   language === 'en'
                     ? 'bg-[#FEBC11] text-[#0D0D0E] shadow-sm'
                     : isLight
@@ -227,7 +214,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
 
-            {/* Theme Toggle Button: Segmented Tối / Sáng control */}
+            {/* Theme Toggle Button: icon-only on mobile, label on md+ */}
             <div
               id="header-theme-toggle"
               className={`flex border-2 border-black p-0.5 font-black text-xs shadow-brutal ${
@@ -237,7 +224,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => isLight && onToggleTheme()}
-                className={`px-2.5 py-1 transition-all flex items-center gap-1 cursor-pointer select-none ${
+                className={`px-1.5 md:px-2.5 py-1 transition-all flex items-center gap-1 cursor-pointer select-none ${
                   !isLight
                     ? 'bg-[#FEBC11] text-[#0D0D0E] shadow-sm'
                     : 'text-gray-600 hover:text-black'
@@ -245,12 +232,12 @@ export const Header: React.FC<HeaderProps> = ({
                 title={language === 'vi' ? 'Chuyển sang Chế độ Tối' : 'Switch to Dark Mode'}
               >
                 <span>🌙</span>
-                <span>Tối</span>
+                <span className="hidden sm:inline">Tối</span>
               </button>
               <button
                 type="button"
                 onClick={() => !isLight && onToggleTheme()}
-                className={`px-2.5 py-1 transition-all flex items-center gap-1 cursor-pointer select-none ${
+                className={`px-1.5 md:px-2.5 py-1 transition-all flex items-center gap-1 cursor-pointer select-none ${
                   isLight
                     ? 'bg-[#FEBC11] text-[#0D0D0E] shadow-sm'
                     : 'text-gray-400 hover:text-white'
@@ -258,21 +245,21 @@ export const Header: React.FC<HeaderProps> = ({
                 title={language === 'vi' ? 'Chuyển sang Chế độ Sáng' : 'Switch to Light Mode'}
               >
                 <span>☀️</span>
-                <span>Sáng</span>
+                <span className="hidden sm:inline">Sáng</span>
               </button>
             </div>
 
-            {/* Gate 7 Sonic Flavor Pairings Interactive Badge with Coffee Bean & Note Hugging Animation */}
+            {/* Gate 7 Sonic Flavor Pairings Interactive Badge — hidden on mobile */}
             <button
               id="header-booth-badge"
               onClick={onBoothClick}
-              className={`flex items-center gap-2 px-2.5 py-1 border-2 border-black shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer group ${
+              className={`hidden sm:flex items-center gap-2 px-2.5 py-1 border-2 border-black shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer group ${
                 isLight ? 'bg-white hover:bg-gray-50' : 'bg-[#1F1F24] hover:bg-[#282830] border-[#FEBC11]'
               }`}
               title={language === 'vi' ? 'Khám phá Gate 7 Sonic Flavor Pairings (Hòa âm & Vị giác)' : 'Explore Gate 7 Sonic Flavor Pairings'}
             >
               <SonicPairingG7Icon size="sm" showRipples={true} showSteam={true} />
-              <div className="flex flex-col text-left leading-tight">
+              <div className="hidden lg:flex flex-col text-left leading-tight">
                 <span
                   className={`text-[11px] font-black uppercase tracking-wider ${
                     isLight ? 'text-black group-hover:text-amber-800' : 'text-white group-hover:text-[#FEBC11]'
