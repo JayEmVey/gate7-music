@@ -153,150 +153,89 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
             </div>
 
             {/* Grid of Playlist Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
               {matchingPlaylists.map((playlist) => {
                 const isActive = isCurrentSlot && playlist.id === activePlaylistId;
                 const isNowPlaying = isCurrentSlot && Boolean(playlist.isNowPlaying);
-                const isHighlighted = playlist.isHighlighted;
+                const cover = playlistCover(playlist);
 
-                // Active / Now Playing Card (Image 1 / 2)
-                if (isActive || isNowPlaying) {
-                  return (
-                    <div
-                      key={playlist.id}
-                      onClick={() => onSelectPlaylist(playlist)}
-                      className={`group p-4 flex flex-col justify-between hover:-translate-y-1 transition-all relative overflow-hidden cursor-pointer ${
-                        isLight
-                          ? 'bg-[#FFFDF0] border-3 border-black shadow-[5px_5px_0px_#000000]'
-                          : 'bg-[#1A1A1E] border-2 border-[#FEBC11] shadow-brutal'
-                      }`}
-                    >
-                      <div className="absolute top-0 right-0 bg-black text-[#FEBC11] text-[9px] font-black uppercase px-2 py-0.5 border-b border-l border-black">
-                        {language === 'vi' ? 'NOW PLAYING' : 'ACTIVE'}
-                      </div>
-
-                      <div>
-                        <div className="w-10 h-10 bg-[#FEBC11] border-2 border-black shadow-brutal flex items-center justify-center text-[#0D0D0E] mb-3 group-hover:rotate-6 transition-transform">
-                          <img src={playlistCover(playlist)} alt="" className="w-full h-full object-cover" />
-                        </div>
-                        <h4
-                          className={`font-black text-sm uppercase truncate transition-colors ${
-                            isLight ? 'text-black group-hover:text-amber-800' : 'text-white group-hover:text-[#FEBC11]'
-                          }`}
-                        >
-                          {playlist.title}
-                        </h4>
-                        <p className={`text-xs font-medium mt-1 line-clamp-2 ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
-                          {playlist.description}
-                        </p>
-                      </div>
-
-                      <div
-                        className={`mt-4 pt-3 flex items-center justify-between font-mono text-xs font-bold ${
-                          isLight ? 'border-t-2 border-black/15 text-black' : 'border-t border-[#2A2A35]'
-                        }`}
-                      >
-                        <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>
-                          {playlist.trackCount} {language === 'vi' ? 'BÀI' : 'TRACKS'}
-                        </span>
-                        <span className="bg-[#FEBC11] text-[#0D0D0E] px-2 py-0.5 font-sans font-black border border-black">
-                          {playlist.duration}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Highlighted Card (e.g. Bossa Nova Jazz Mix in Slot 1)
-                if (isHighlighted) {
-                  return (
-                    <div
-                      key={playlist.id}
-                      onClick={() => onSelectPlaylist(playlist)}
-                      className={`group p-4 flex flex-col justify-between hover:-translate-y-1 transition-all cursor-pointer ${
-                        isLight
-                          ? 'bg-white border-2 border-black shadow-[4px_4px_0px_#000000] hover:shadow-[6px_6px_0px_#000000]'
-                          : 'bg-[#1A1A1E] border-2 border-[#FEBC11] shadow-brutal'
-                      }`}
-                    >
-                      <div>
-                        <div className="w-10 h-10 bg-[#24242E] text-white border-2 border-black flex items-center justify-center font-bold text-base mb-2.5 group-hover:rotate-6 transition-transform">
-                          <img src={playlistCover(playlist)} alt="" className="w-full h-full object-cover" />
-                        </div>
-                        <h4 className={`font-black text-sm uppercase truncate ${isLight ? 'text-black' : 'text-white'}`}>
-                          {playlist.title}
-                        </h4>
-                        <p className={`text-xs font-medium mt-1 line-clamp-2 ${isLight ? 'text-gray-700' : 'text-gray-400'}`}>
-                          {playlist.description}
-                        </p>
-                      </div>
-                      <div
-                        className={`mt-3 pt-2 flex items-center justify-between text-xs font-mono font-bold ${
-                          isLight ? 'border-t-2 border-black/10 text-black' : 'border-t border-[#2A2A35] text-gray-400'
-                        }`}
-                      >
-                        <span>{playlist.duration}</span>
-                        <span className="bg-[#FEBC11] text-[#0D0D0E] px-1.5 py-0.5 font-sans font-black border border-black">
-                          {playlist.trackCount} {language === 'vi' ? 'bài' : 'tracks'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Standard Cards
                 return (
                   <div
                     key={playlist.id}
                     onClick={() => onSelectPlaylist(playlist)}
-                    className={`group p-4 flex flex-col justify-between hover:-translate-y-1 transition-all cursor-pointer ${
-                      isLight
-                        ? 'bg-white border-2 border-black shadow-[4px_4px_0px_#000000] hover:shadow-[6px_6px_0px_#000000]'
-                        : 'bg-[#1A1A1E] border-2 border-[#24242C] shadow-brutal hover:border-[#FEBC11]/70'
+                    className={`group flex flex-col cursor-pointer transition-all hover:-translate-y-1 overflow-hidden ${
+                      isNowPlaying || isActive
+                        ? isLight
+                          ? 'border-3 border-black shadow-[5px_5px_0px_#000000] bg-[#FFFDF0]'
+                          : 'border-2 border-[#FEBC11] shadow-brutal bg-[#1A1A1E]'
+                        : isLight
+                          ? 'border-2 border-black shadow-[4px_4px_0px_#000000] bg-white hover:shadow-[6px_6px_0px_#000000]'
+                          : 'border-2 border-[#24242C] shadow-brutal bg-[#1A1A1E] hover:border-[#FEBC11]/70'
                     }`}
                   >
-                    <div>
-                      <div
-                        className="w-10 h-10 border-2 border-black flex items-center justify-center font-bold text-base mb-2.5 group-hover:rotate-6 transition-transform"
-                        style={{
-                          backgroundColor: isLight ? `${playlist.accentColor}25` : `${playlist.accentColor}18`,
-                          color: playlist.accentColor,
-                        }}
-                      >
-                        <img src={playlistCover(playlist)} alt="" className="w-full h-full object-cover" />
-                      </div>
+                    {/* Cover image — full bleed, square aspect ratio */}
+                    <div className="relative w-full aspect-square overflow-hidden">
+                      <img
+                        src={cover}
+                        alt={playlist.title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+
+                      {/* Dark gradient overlay at the bottom for legibility */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
+
+                      {/* NOW PLAYING badge — top right */}
+                      {(isNowPlaying || isActive) && (
+                        <div className="absolute top-0 right-0 bg-black text-[#FEBC11] text-[9px] font-black uppercase px-2 py-1 border-b border-l border-black tracking-wider">
+                          NOW PLAYING
+                        </div>
+                      )}
+
+                      {/* Equalizer animation overlay at bottom-left when now playing */}
+                      {(isNowPlaying || isActive) && (
+                        <div className="absolute bottom-2 left-2 flex items-end gap-0.5 h-4">
+                          <span className="w-1 bg-[#FEBC11] rounded-t animate-equalizer-1 h-full opacity-90"></span>
+                          <span className="w-1 bg-[#FEBC11] rounded-t animate-equalizer-2 h-full opacity-90"></span>
+                          <span className="w-1 bg-[#FEBC11] rounded-t animate-equalizer-3 h-full opacity-90"></span>
+                          <span className="w-1 bg-[#FEBC11] rounded-t animate-equalizer-4 h-full opacity-90"></span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card body */}
+                    <div className="flex flex-col flex-1 p-3">
                       <h4
-                        className={`font-black text-sm uppercase transition-colors truncate ${
-                          isLight ? 'text-black group-hover:text-amber-800' : 'text-white group-hover:text-[#FEBC11]'
+                        className={`font-black text-sm uppercase leading-tight truncate transition-colors ${
+                          isLight
+                            ? 'text-black group-hover:text-amber-800'
+                            : 'text-white group-hover:text-[#FEBC11]'
                         }`}
                       >
                         {playlist.title}
                       </h4>
-                      <p className={`text-xs font-medium mt-1 line-clamp-2 ${isLight ? 'text-gray-700' : 'text-gray-400'}`}>
+                      <p className={`text-xs font-medium mt-1 line-clamp-2 leading-relaxed ${
+                        isLight ? 'text-gray-700' : 'text-gray-400'
+                      }`}>
                         {playlist.description}
                       </p>
-                    </div>
 
-                    <div
-                      className={`mt-4 pt-3 flex items-center justify-between font-mono text-xs font-bold ${
-                        isLight ? 'border-t-2 border-black/10 text-black' : 'border-t border-[#2A2A35] text-gray-400'
-                      }`}
-                    >
-                      {isCurrentSlot ? (
-                        <>
-                          <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>
-                            {playlist.trackCount} {language === 'vi' ? 'BÀI' : 'TRACKS'}
+                      {/* Footer: track count + duration */}
+                      <div
+                        className={`mt-auto pt-2.5 flex items-center justify-between font-mono text-xs font-bold ${
+                          isLight
+                            ? 'border-t border-black/15 text-gray-700'
+                            : 'border-t border-[#2A2A35] text-gray-400'
+                        }`}
+                      >
+                        <span>
+                          {playlist.duration} • {playlist.trackCount} {language === 'vi' ? 'bài' : 'tracks'}
+                        </span>
+                        {(isNowPlaying || isActive) && (
+                          <span className="bg-[#FEBC11] text-[#0D0D0E] px-1.5 py-0.5 font-sans font-black text-[9px] border border-black uppercase">
+                            {language === 'vi' ? 'Đang phát' : 'Live'}
                           </span>
-                          <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>{playlist.duration}</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>{playlist.duration}</span>
-                          <span className={isLight ? 'text-black font-bold' : 'text-gray-400'}>
-                            {playlist.trackCount} {language === 'vi' ? 'bài' : 'tracks'}
-                          </span>
-                        </>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

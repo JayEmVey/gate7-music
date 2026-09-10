@@ -120,10 +120,15 @@ function getPersistedPlaybackState(): PersistedPlaybackState | null {
 
 export default function App() {
   const persistedPlayback = getPersistedPlaybackState();
-  const [currentTrack, setCurrentTrack] = useState<Track>(persistedPlayback?.track || EMPTY_SPOTIFY_TRACK);
+  const [currentTrack, setCurrentTrack] = useState<Track>(() => {
+    // Always re-read from localStorage at mount time so a new tab picks up
+    // the last track written by a previous session.
+    const fresh = getPersistedPlaybackState();
+    return fresh?.track || EMPTY_SPOTIFY_TRACK;
+  });
   const currentTrackRef = useRef(currentTrack);
-  const [isPlaying, setIsPlaying] = useState<boolean>(persistedPlayback?.isPlaying ?? false);
-  const [playbackSec, setPlaybackSec] = useState<number>(persistedPlayback?.playbackSec ?? 0);
+  const [isPlaying, setIsPlaying] = useState<boolean>(() => getPersistedPlaybackState()?.isPlaying ?? false);
+  const [playbackSec, setPlaybackSec] = useState<number>(() => getPersistedPlaybackState()?.playbackSec ?? 0);
   const [likesCount, setLikesCount] = useState<number>(46);
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [activePlaylistId, setActivePlaylistId] = useState<string>(getInitialActivePlaylistId);
@@ -313,14 +318,33 @@ export default function App() {
         spotifyDeviceIdRef.current = device_id;
         setSpotifyPlayerReady(true);
         setSpotifySource('web');
+        setSpotifyDesktopStatus('');
+
+        // Immediately fetch live playback state from the API. This covers the
+        // case where Spotify is already playing on another device (desktop app,
+        // phone) and we just need to mirror it — no user interaction required.
+        try {
+          const state = await fetchSpotifyPlaybackState();
+          if (state?.item?.id) {
+            // A live session exists — mirror it directly.
+            const liveTrack = toAppTrack(state.item, currentTrackRef.current.coverUrl, currentTrackRef.current);
+            setCurrentTrack(liveTrack);
+            setPlaybackSec(Math.floor(Math.max(0, state.progress_ms || 0) / 1000));
+            setIsPlaying(Boolean(state.is_playing));
+            pendingRestoreRef.current = null;
+            return;
+          }
+        } catch {
+          // If the API call fails, fall through to persisted state restore.
+        }
+
+        // No active Spotify session — restore the last played track from
+        // localStorage so the UI shows what was playing before the reload.
         const saved = getPersistedPlaybackState();
-        if (saved) {
+        if (saved?.track?.spotifyId) {
           setCurrentTrack(saved.track);
           setPlaybackSec(saved.playbackSec);
-          setIsPlaying(false);
-          setSpotifyDesktopStatus('');
-        } else {
-          setSpotifyDesktopStatus('');
+          setIsPlaying(false); // Cannot auto-resume; user must press Play
         }
       });
       player.addListener('not_ready', () => {
@@ -407,7 +431,22 @@ export default function App() {
       playbackRequestActive = true;
       try {
         const state = await fetchSpotifyPlaybackState();
-        if (cancelled || !state) return;
+        if (cancelled) return;
+
+        if (!state) {
+          // No active Spotify device. If the UI is still showing the empty
+          // placeholder track, restore from localStorage so the user sees
+          // the last played song rather than a blank player.
+          if (!currentTrackRef.current.spotifyId) {
+            const saved = getPersistedPlaybackState();
+            if (saved?.track?.spotifyId) {
+              setCurrentTrack(saved.track);
+              setPlaybackSec(saved.playbackSec);
+              setIsPlaying(false);
+            }
+          }
+          return;
+        }
 
         const currentItem = state.item;
         const currentDeviceId = state.device?.id;
