@@ -90,6 +90,20 @@ Replacing traditional static icons, this component introduces an animated SVG ch
   - High Frequencies (Treble) → Elevates bright fruity acidity (Citrus, Floral, Jasmine).
   - Mid Frequencies (Mids) → Balances body, sweetness, and caramel notes.
   - Low Frequencies (Bass) → Amplifies deep roasted cacao, dark chocolate, and roasted nut undertones.
+  - **Full Menu Coverage**: All 35 Gate 7 menu drinks are mapped to one of 10 sonic pairing categories defined in `COFFEE_PAIRINGS` (`src/data.ts`). Drinks sharing the same sonic profile are grouped together in the modal under collapsible category sections.
+  - **10 Sonic Categories**:
+    1. `High Energy / Fast Tempo` — Espresso, Orange Espresso, Americano
+    2. `Warm Soul / Mid Tempo` — Espresso with Milk, Cappuccino, Latte
+    3. `Deep Chocolate Groove` — Mocha, Chocolate, Oreo Ice Blended
+    4. `Bright / Tropical Groove` — Mango Passion Fruit Smoothie, Orange Mango Peach Smoothie, Orange Peach Cold Drip, Mango Passion Fruit Juice
+    5. `Tropical / Vibrant Groove` — Passion Fruit Tea, Peach Orange Tea, Passion Fruit Juice
+    6. `Instrumental / Zen Flow` — Matcha Latte, Matcha Coco, Matcha Macchiato, Houjicha Latte, Houjicha Macchiato
+    7. `Floral / Delicate Acoustic` — Jasmine Olong Milk Tea, Macchiato Jasmin Olong Tea, Lychee Tea
+    8. `Cinematic Pop / Layered` — Iced Salt Caramel Macchiato, Salted Foam Macchiato, Blueberry Ice Blended
+    9. `Acoustic / Grounded Energy` — Drip Drop Coffee, Drip Drop Milk Coffee, Drip Drop Fresh Milk Coffee
+    10. `Gentle Acoustic / Sweet Clarity` — Salted Plum Tea, Honey Lemon Juice
+  - **Collapsible Category Sections**: Each sonic category renders as a collapsible accordion row with a color-coded icon, drink count badge, and ★ MATCH indicator when the currently playing track's recommended pairing falls inside that group. An Expand all / Collapse all control sits above the list.
+  - **Dynamic Recommendation Engine** (`getCoffeePairing()` in `src/utils/pairing.ts`): Evaluates Spotify audio features (energy, tempo, valence, danceability, acousticness, instrumentalness, liveness, loudness, mode) against ordered priority rules to select the single most fitting drink from the full 35-item menu. Separate rule paths for `worker` (RapidAPI-sourced) vs. estimated feature data ensure stability across both sources.
 - **Playlist Detail Modal (`PlaylistDetailModal.tsx`)**: Full tracklist viewer with instant song selection and direct per-track & per-playlist "Open Spotify" triggers.
 
 ---

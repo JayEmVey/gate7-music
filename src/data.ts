@@ -388,12 +388,37 @@ export const INITIAL_REQUESTS: RequestTicket[] = [
   },
 ];
 
+// ─── Sonic Pairing Categories ────────────────────────────────────────────────
+// Each drink is assigned to one of 10 sonic categories. Drinks that share the
+// same `bestGenre` string are rendered together in the PairingGuideModal.
+
 export const COFFEE_PAIRINGS = [
+  // ── Category 1: High Energy / Fast Tempo ──────────────────────────────────
   {
     drink: 'Espresso (Hot/Iced)',
     bestGenre: 'High Energy / Fast Tempo',
     description: 'Intense, sharp, and purely focused. High-energy tracks with a fast beat match the kick of 100% Vietnamese Arabica.',
     tags: ['Energy > 0.80', 'Tempo > 120', 'Focused'],
+  },
+  {
+    drink: 'Orange Espresso (Iced)',
+    bestGenre: 'High Energy / Fast Tempo',
+    description: 'Bold espresso meets fresh orange — bright, punchy, and alive. Uplifting major-key tracks with fast tempo mirror the citrus kick.',
+    tags: ['Valence > 0.70', 'Mode = Major', 'Tempo > 110'],
+  },
+  {
+    drink: 'Americano (Hot/Iced)',
+    bestGenre: 'High Energy / Fast Tempo',
+    description: 'Clean, direct, no fuss. Post-rock or driving instrumental tracks match the clarity and focused energy of a straight Americano.',
+    tags: ['Instrumentalness > 0.50', 'Energy 0.55–0.80', 'Clean'],
+  },
+
+  // ── Category 2: Acoustic / Grounded Energy ────────────────────────────────
+  {
+    drink: 'Drip Drop Coffee (Hot/Iced)',
+    bestGenre: 'Acoustic / Grounded Energy',
+    description: 'Pure, unfussy, just coffee. Raw fingerpicked acoustic or slow folk — nothing layered, nothing rushed.',
+    tags: ['Acousticness > 0.75', 'Tempo < 90', 'Raw'],
   },
   {
     drink: 'Drip Drop Milk Coffee (Hot/Iced)',
@@ -402,33 +427,181 @@ export const COFFEE_PAIRINGS = [
     tags: ['Acousticness > 0.60', 'Energy 0.50–0.75', 'Comforting'],
   },
   {
+    drink: 'Drip Drop Fresh Milk Coffee (Hot/Iced)',
+    bestGenre: 'Acoustic / Grounded Energy',
+    description: 'Light, creamy Bạc Xỉu. Breezy acoustic tracks with gentle energy mirror the freshness of milk over slow-drip Robusta.',
+    tags: ['Acousticness > 0.65', 'Energy < 0.50', 'Breezy'],
+  },
+
+  // ── Category 3: Warm Soul / Mid Tempo ─────────────────────────────────────
+  {
+    drink: 'Espresso with Milk (Hot/Iced)',
+    bestGenre: 'Warm Soul / Mid Tempo',
+    description: 'Espresso softened by milk — intensity mellowed into smoothness. Warm jazz or mid-tempo R&B fits perfectly.',
+    tags: ['Energy 0.55–0.75', 'Tempo 90–115', 'Smooth'],
+  },
+  {
+    drink: 'Cappuccino (Hot/Iced)',
+    bestGenre: 'Warm Soul / Mid Tempo',
+    description: 'Balanced foam and espresso — classic coffeehouse warmth. Soul or classic acoustic with a steady, welcoming tempo.',
+    tags: ['Valence 0.50–0.70', 'Acousticness 0.40–0.65', 'Classic'],
+  },
+  {
+    drink: 'Latte (Hot/Iced)',
+    bestGenre: 'Warm Soul / Mid Tempo',
+    description: 'Softened, milky, unhurried. Neo-soul or smooth R&B with gentle groove keep the latte energy exactly right.',
+    tags: ['Energy 0.40–0.60', 'Danceability 0.50–0.70', 'Velvety'],
+  },
+
+  // ── Category 4: Deep Chocolate Groove ────────────────────────────────────
+  {
+    drink: 'Mocha (Hot/Iced)',
+    bestGenre: 'Deep Chocolate Groove',
+    description: 'Espresso and chocolate — rich, dark, soulful. Deep groove tracks with a heavy low end bring out every layer of mocha.',
+    tags: ['Energy 0.55–0.75', 'Loudness > -8 dB', 'Soulful'],
+  },
+  {
+    drink: 'Chocolate (Hot/Iced)',
+    bestGenre: 'Deep Chocolate Groove',
+    description: 'Pure comfort in a cup. Warm piano ballads or orchestral pop wrap around the comforting depth of pure chocolate.',
+    tags: ['Valence 0.45–0.70', 'Acousticness > 0.40', 'Comforting'],
+  },
+  {
+    drink: 'Oreo Ice Blended',
+    bestGenre: 'Deep Chocolate Groove',
+    description: 'Indulgent, rich, and fun. Punchy, highly produced tracks suit the chocolatey, cookie-filled treat-yourself mood.',
+    tags: ['Loudness > -5 dB', 'Danceability > 0.60', 'Indulgent'],
+  },
+
+  // ── Category 5: Bright / Tropical Groove ──────────────────────────────────
+  {
     drink: 'Mango Passion Fruit Smoothie',
     bestGenre: 'Bright / Tropical Groove',
     description: 'Bright, tropical, tangy, and refreshing. Euphoric, cheerful tracks with an irresistible groove mirror ripe mango and zesty passion fruit.',
     tags: ['Valence > 0.75', 'Danceability > 0.70', 'Refreshing'],
   },
   {
+    drink: 'Orange Mango Peach Smoothie',
+    bestGenre: 'Bright / Tropical Groove',
+    description: 'Triple-fruit explosion of sweetness and zest. Afrobeats or high-energy sunny groove match this vibrant blend perfectly.',
+    tags: ['Valence > 0.75', 'Energy > 0.65', 'Sunny'],
+  },
+  {
+    drink: 'Orange Peach Cold Drip',
+    bestGenre: 'Bright / Tropical Groove',
+    description: 'Cold drip smoothness layered with fruit brightness. Chill melodic tracks with a refreshing lift echo the sweet-citrus finish.',
+    tags: ['Energy 0.35–0.55', 'Valence > 0.60', 'Chill Melodic'],
+  },
+  {
+    drink: 'Mango Passion Fruit Juice',
+    bestGenre: 'Bright / Tropical Groove',
+    description: 'Pure fruit, nothing added. Clean fresh pop with genuine uplift — no overdone production, just natural brightness.',
+    tags: ['Valence > 0.70', 'Energy 0.55–0.75', 'Pure'],
+  },
+
+  // ── Category 6: Instrumental / Zen Flow ───────────────────────────────────
+  {
     drink: 'Matcha Latte',
-    bestGenre: 'Instrumental / Low Energy',
-    description: 'Earthy, pure, zen, and balanced. Instrumental, low-energy tracks create the grounded flow state of a smooth matcha latte.',
+    bestGenre: 'Instrumental / Zen Flow',
+    description: 'Earthy, pure, zen, and balanced. Instrumental low-energy tracks create the grounded flow state of a smooth matcha latte.',
     tags: ['Instrumentalness > 0.60', 'Energy < 0.50', 'Zen'],
   },
   {
-    drink: 'Macchiato Jasmin Olong Tea',
-    bestGenre: 'Major Key / Live Texture',
-    description: 'Graceful and layered, with a major-key lift and the room texture of a live performance beneath fragrant jasmine tea foam.',
-    tags: ['Mode = 1', 'Liveness > 0.30', 'Layered'],
+    drink: 'Matcha Coco (Hot/Iced)',
+    bestGenre: 'Instrumental / Zen Flow',
+    description: 'Matcha meets coconut water — tropical and light. Ambient grooves with gentle texture suit this breezy tropical zen.',
+    tags: ['Energy < 0.55', 'Valence > 0.60', 'Tropical Zen'],
   },
   {
+    drink: 'Matcha Macchiato',
+    bestGenre: 'Instrumental / Zen Flow',
+    description: 'Bold matcha with milk contrast — zen but present. Focused instrumental tracks in a minor key hold the right tension.',
+    tags: ['Instrumentalness > 0.50', 'Energy 0.35–0.55', 'Focused Zen'],
+  },
+  {
+    drink: 'Houjicha Latte',
+    bestGenre: 'Instrumental / Zen Flow',
+    description: 'Roasted, nutty, deeply grounded. Earthy acoustic folk with warm mid frequencies brings out the toasted depth of houjicha.',
+    tags: ['Acousticness > 0.65', 'Energy < 0.50', 'Earthy'],
+  },
+  {
+    drink: 'Houjicha Macchiato',
+    bestGenre: 'Instrumental / Zen Flow',
+    description: 'Bold nutty houjicha with a creamy contrast layer. Indie folk in a minor key captures this warm, layered complexity.',
+    tags: ['Acousticness > 0.55', 'Mode = Minor', 'Warm'],
+  },
+
+  // ── Category 7: Cinematic Pop / Layered ───────────────────────────────────
+  {
+    drink: 'Iced Salt Caramel Macchiato',
+    bestGenre: 'Cinematic Pop / Layered',
+    description: 'Sweet and salty in beautiful contrast — elegantly layered. Cinematic pop with multi-layered production mirrors every sip.',
+    tags: ['Energy 0.55–0.75', 'Valence > 0.60', 'Cinematic'],
+  },
+  {
+    drink: 'Salted Foam Macchiato',
+    bestGenre: 'Cinematic Pop / Layered',
+    description: 'Silky salted foam over bold phin — minimal yet memorable. Atmospheric indie with dynamic tension between light and dark.',
+    tags: ['Energy 0.45–0.65', 'Instrumentalness > 0.30', 'Atmospheric'],
+  },
+  {
+    drink: 'Blueberry Ice Blended',
+    bestGenre: 'Cinematic Pop / Layered',
+    description: 'Cool, smooth, fruity, and mysterious. Chill electronic with a subtle night vibe suits the deep purple, icy smoothness.',
+    tags: ['Energy 0.45–0.65', 'Instrumentalness > 0.25', 'Night Vibe'],
+  },
+
+  // ── Category 8: Floral / Delicate Acoustic ────────────────────────────────
+  {
     drink: 'Jasmine Olong Milk Tea',
-    bestGenre: 'Soft Acoustic / Easy-going',
+    bestGenre: 'Floral / Delicate Acoustic',
     description: 'Velvety, delicate, and simple. Soft acoustic tracks keep the energy gentle around smooth milk and floral jasmine notes.',
     tags: ['Energy < 0.40', 'Acousticness > 0.70', 'Delicate'],
   },
   {
-    drink: 'Oreo Ice Blended',
-    bestGenre: 'Punchy / Danceable',
-    description: 'Indulgent, rich, fun, and heavy. Punchy, highly produced tracks suit the chocolatey, cookie-filled treat-yourself mood.',
-    tags: ['Loudness > -5 dB', 'Danceability > 0.60', 'Indulgent'],
+    drink: 'Macchiato Jasmin Olong Tea',
+    bestGenre: 'Floral / Delicate Acoustic',
+    description: 'Graceful and layered — creamy foam atop fragrant jasmine oolong. Major-key tracks with live room texture feel just right.',
+    tags: ['Mode = Major', 'Liveness > 0.30', 'Graceful'],
+  },
+  {
+    drink: 'Lychee Tea',
+    bestGenre: 'Floral / Delicate Acoustic',
+    description: 'Exotic, floral, lightly sweet lychee. Dream pop or ethereal indie with soft acoustic textures matches this fragrant brew.',
+    tags: ['Acousticness > 0.50', 'Valence > 0.60', 'Ethereal'],
+  },
+
+  // ── Category 9: Tropical / Vibrant Groove ────────────────────────────────
+  {
+    drink: 'Passion Fruit Tea',
+    bestGenre: 'Tropical / Vibrant Groove',
+    description: 'Vibrant, lively, and citrusy. World music or tropical upbeat tracks with danceable energy match the bold passion fruit punch.',
+    tags: ['Valence > 0.70', 'Danceability > 0.65', 'Vibrant'],
+  },
+  {
+    drink: 'Peach Orange Tea',
+    bestGenre: 'Tropical / Vibrant Groove',
+    description: 'Sweet peach meets zesty orange — bright and optimistic. Indie pop in a major key with uplifting energy fits this sunny blend.',
+    tags: ['Valence > 0.65', 'Mode = Major', 'Sunny Indie'],
+  },
+  {
+    drink: 'Passion Fruit Juice',
+    bestGenre: 'Tropical / Vibrant Groove',
+    description: 'Pure passion fruit punch — unfiltered tropical energy. Danceable groove tracks with high energy match the bold, tangy burst.',
+    tags: ['Valence > 0.65', 'Danceability > 0.60', 'Energetic'],
+  },
+
+  // ── Category 10: Gentle Acoustic / Sweet Clarity ─────────────────────────
+  {
+    drink: 'Salted Plum Tea',
+    bestGenre: 'Gentle Acoustic / Sweet Clarity',
+    description: 'Crisp tea with gentle tartness — introspective and calming. Wabi-sabi acoustic with thoughtful, understated arrangements.',
+    tags: ['Acousticness > 0.60', 'Valence 0.30–0.55', 'Introspective'],
+  },
+  {
+    drink: 'Honey Lemon Juice',
+    bestGenre: 'Gentle Acoustic / Sweet Clarity',
+    description: 'Sweet lemon balanced by warm honey — clear and honest. Gentle acoustic tracks with warm tones and simple clarity.',
+    tags: ['Acousticness > 0.60', 'Valence > 0.60', 'Warm Clarity'],
   },
 ];
