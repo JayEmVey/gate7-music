@@ -19,6 +19,7 @@ import {
   fetchCachedPlaylistTracks,
   fetchSpotifySearchTracks,
   fetchSpotifyTrackAudioFeatures,
+  SONIC_CATEGORY_QUERIES,
   fetchSpotifyPlaybackState,
   fetchSpotifyQueue,
   transferSpotifyPlayback,
@@ -851,6 +852,14 @@ export default function App() {
     }
   };
 
+  const handleFilterSimilarSongs = async (sonicCategory: string) => {
+    // Use the first (most descriptive) query for this sonic category as the
+    // search text so the user sees and can edit the actual Spotify query.
+    const queries = SONIC_CATEGORY_QUERIES[sonicCategory];
+    const searchText = queries?.[0] ?? sonicCategory;
+    await handleSearchSubmit(searchText);
+  };
+
   const loadPlaylistTracks = async (playlist: Playlist) => {
     if (!playlist.spotifyId || loadedPlaylistIdsRef.current.has(playlist.id)) {
       setSelectedPlaylistForModal(playlist);
@@ -1157,6 +1166,7 @@ export default function App() {
         isOpen={isPairingModalOpen}
         onClose={() => setIsPairingModalOpen(false)}
         onSelectGenre={handleSelectGenreFilter}
+        onFilterSimilarSongs={handleFilterSimilarSongs}
         language={language}
         currentTrack={currentTrack}
       />

@@ -10,6 +10,7 @@ interface PairingGuideModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectGenre: (genre: string) => void;
+  onFilterSimilarSongs?: (sonicCategory: string) => void;
   language: Language;
   currentTrack: Track;
 }
@@ -46,6 +47,7 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
   isOpen,
   onClose,
   onSelectGenre,
+  onFilterSimilarSongs,
   language,
   currentTrack,
 }) => {
@@ -178,8 +180,13 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onSelectGenre(recommendedPairing.bestGenre);
-                  onClose();
+                  if (onFilterSimilarSongs && !hasNoFeatures && recommendedPairing) {
+                    onFilterSimilarSongs(recommendedPairing.bestGenre);
+                    onClose();
+                  } else {
+                    onSelectGenre(recommendedPairing!.bestGenre);
+                    onClose();
+                  }
                 }}
                 className="ml-auto px-2 py-1 text-[10px] font-black uppercase text-[#FEBC11] hover:bg-[#FEBC11] hover:text-[#0D0D0E] border border-[#FEBC11] transition-colors cursor-pointer"
               >

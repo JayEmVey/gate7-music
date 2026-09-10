@@ -246,6 +246,74 @@ export async function fetchSpotifySearchTracks(query: string): Promise<SpotifyPl
   }));
 }
 
+/**
+ * Genre/keyword search terms per sonic category.
+ * Used to query /search since /recommendations was deprecated by Spotify in Nov 2024.
+ * Each entry is an array of query strings — we run 2-3 searches and merge results
+ * to produce a diverse set of ~20 tracks that fit the sonic profile.
+ */
+export const SONIC_CATEGORY_QUERIES: Record<string, string[]> = {
+  'High Energy / Fast Tempo':        ['genre:rock high energy fast tempo', 'genre:punk genre:alternative fast', 'genre:electronic upbeat dance'],
+  'Acoustic / Grounded Energy':      ['genre:folk acoustic slow', 'genre:singer-songwriter acoustic guitar', 'genre:indie-folk fingerpicking'],
+  'Warm Soul / Mid Tempo':           ['genre:soul jazz r&b smooth', 'genre:neo-soul warm mid tempo', 'genre:jazz cafe coffeehouse'],
+  'Deep Chocolate Groove':           ['genre:soul funk groove deep bass', 'genre:r-n-b chocolate slow groove', 'genre:blues groove rich dark'],
+  'Bright / Tropical Groove':        ['genre:tropical pop happy', 'genre:reggaeton dancehall tropical', 'genre:afrobeats sunny upbeat'],
+  'Instrumental / Zen Flow':         ['genre:ambient instrumental zen', 'genre:study instrumental focus', 'genre:new-age piano peaceful'],
+  'Cinematic Pop / Layered':         ['genre:indie-pop cinematic layered', 'genre:alternative pop atmospheric', 'genre:dream-pop ethereal'],
+  'Floral / Delicate Acoustic':      ['genre:folk acoustic gentle floral', 'genre:singer-songwriter soft delicate', 'genre:indie acoustic dreamy'],
+  'Tropical / Vibrant Groove':       ['genre:tropical house vibrant', 'genre:latin pop dance energetic', 'genre:world music upbeat groove'],
+  'Gentle Acoustic / Sweet Clarity': ['genre:folk soft acoustic gentle', 'genre:acoustic singer-songwriter sweet', 'genre:indie-folk calm'],
+};
+
+/**
+ * Fetch tracks that match a sonic pairing category by running targeted
+ * Spotify keyword/genre searches. Falls back to a seed-track artist search
+ * if genre queries return too few results.
+ */
+export async function fetchSpotifyRecommendationsBySonicCategory(
+  seedTrackId: string,
+  sonicCategory: string,
+  limit = 20,
+): Promise<SpotifyPlaylistTrack[]> {
+  const queries = SONIC_CATEGORY_QUERIES[sonicCategory] ?? ['genre:indie acoustic chill'];
+  const seen = new Set<string>();
+  const results: SpotifyPlaylistTrack[] = [];
+  const perQuery = Math.ceil(limit / queries.length);
+
+  for (const q of queries) {
+    if (results.length >= limit) break;
+    const params = new URLSearchParams({
+      q,
+      type: 'track',
+      limit: String(Math.min(perQuery + 5, 50)),
+      market: 'VN',
+    });
+    try {
+      const response = await spotifyFetch(`/search?${params.toString()}`);
+      if (!response.ok) continue;
+      const data = await response.json();
+      for (const item of (data.tracks?.items ?? [])) {
+        if (!item?.id || seen.has(item.id) || item.id === seedTrackId) continue;
+        seen.add(item.id);
+        results.push({
+          id: item.id,
+          title: item.name,
+          artist: item.artists?.map((a: { name: string }) => a.name).join(', ') || 'Unknown',
+          album: item.album?.name || '',
+          durationSec: Math.floor((item.duration_ms || 0) / 1000),
+          coverUrl: item.album?.images?.[0]?.url || '',
+          spotifyUri: item.uri || `spotify:track:${item.id}`,
+        });
+        if (results.length >= limit) break;
+      }
+    } catch {
+      // Continue to next query on individual failure
+    }
+  }
+
+  return results;
+}
+
 export async function fetchSpotifyTrackAudioFeatures(trackId: string): Promise<SpotifyTrackAudioFeatures | null> {
   if (!trackId || !AUDIO_ANALYZER_URL) return null;
 

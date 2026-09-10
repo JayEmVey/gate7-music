@@ -75,7 +75,7 @@ export const SearchResultsModal: React.FC<SearchResultsModalProps> = ({
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               aria-label={language === 'vi' ? 'Từ khóa tìm kiếm' : 'Search keyword'}
-              className="min-w-0 flex-1 bg-[#101014] border-2 border-[#3E3E4C] focus:border-[#FEBC11] outline-none px-3 py-2 text-lg sm:text-2xl font-black uppercase text-white"
+              className="min-w-0 flex-1 bg-[#101014] border-2 border-[#3E3E4C] focus:border-[#FEBC11] outline-none px-3 py-2 text-sm sm:text-base font-black uppercase text-white"
             />
             <button
               type="submit"
@@ -86,7 +86,9 @@ export const SearchResultsModal: React.FC<SearchResultsModalProps> = ({
           </form>
         </div>
 
-        {isLoading && <p className="px-3 py-8 text-center text-sm text-gray-400">{language === 'vi' ? 'Đang tìm bài hát...' : 'Searching for songs...'}</p>}
+        {isLoading && (
+          <p className="px-3 py-8 text-center text-sm text-gray-400">{language === 'vi' ? 'Đang tìm bài hát...' : 'Searching for songs...'}</p>
+        )}
         {!isLoading && error && <p className="border-2 border-amber-400 bg-amber-950/40 px-3 py-3 text-sm text-amber-100">{error}</p>}
         {!isLoading && !error && tracks.length === 0 && (
           <p className="px-3 py-8 text-center text-sm text-gray-400">{language === 'vi' ? 'Không tìm thấy bài hát phù hợp.' : 'No matching songs found.'}</p>
