@@ -7,6 +7,7 @@ import { getSpotifyTelemetry, subscribeSpotifyTelemetry, SpotifyTelemetrySnapsho
 interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  onClearSearch: () => void;
   onSearchSubmit: () => void;
   onRequestClick: () => void;
   onSpotifyClick?: () => void;
@@ -20,6 +21,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   searchQuery,
   setSearchQuery,
+  onClearSearch,
   onSearchSubmit,
   onRequestClick,
   onSpotifyClick,
@@ -162,10 +164,13 @@ export const Header: React.FC<HeaderProps> = ({
               />
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  type="button"
+                  onClick={onClearSearch}
                   className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black ${
                     isLight ? 'text-gray-600 hover:text-black' : 'text-gray-400 hover:text-white'
                   }`}
+                  aria-label={language === 'vi' ? 'Xóa tìm kiếm' : 'Clear Search'}
+                  title={language === 'vi' ? 'Xóa tìm kiếm' : 'Clear Search'}
                 >
                   ✕
                 </button>

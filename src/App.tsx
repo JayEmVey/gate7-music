@@ -6,7 +6,7 @@ import { SidebarRight } from './components/SidebarRight';
 import { BottomPlayer } from './components/BottomPlayer';
 import { RequestModal } from './components/RequestModal';
 import { PlaylistDetailModal } from './components/PlaylistDetailModal';
-import { SearchResultsModal } from './components/SearchResultsModal';
+import { SearchResultsPanel } from './components/SearchResultsPanel';
 import { AlbumDetailModal } from './components/AlbumDetailModal';
 import { ArtistPopularModal } from './components/ArtistPopularModal';
 import { SpotifyChooserModal, SpotifyItemTarget } from './components/SpotifyChooserModal';
@@ -199,7 +199,7 @@ export default function App() {
   const [requestQueue, setRequestQueue] = useState<RequestTicket[]>(INITIAL_REQUESTS);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isSearchActive, setIsSearchActive] = useState(false);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string>();
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
@@ -833,6 +833,24 @@ export default function App() {
     loadPlaylistTracks(playlist);
   };
 
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchError(undefined);
+    setIsSearchActive(false);
+    setIsSearchLoading(false);
+  };
+
+  const handleSearchQueryChange = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearchError(undefined);
+      setIsSearchActive(false);
+      setIsSearchLoading(false);
+    }
+  };
+
   const handleSearchSubmit = async (nextQuery = searchQuery) => {
     const query = nextQuery.trim();
     if (!query) return;
@@ -848,7 +866,7 @@ export default function App() {
 
     setSearchResults(localTracks);
     setSearchError(undefined);
-    setIsSearchModalOpen(true);
+    setIsSearchActive(true);
     setIsSearchLoading(true);
 
     try {
@@ -864,7 +882,6 @@ export default function App() {
   };
 
   const handleOpenCurrentAlbum = async () => {
-    setIsSearchModalOpen(false);
     setSelectedPlaylistForModal(null);
     setIsArtistModalOpen(false);
     setIsAlbumModalOpen(true);
@@ -909,7 +926,6 @@ export default function App() {
   };
 
   const handleOpenCurrentArtist = async () => {
-    setIsSearchModalOpen(false);
     setSelectedPlaylistForModal(null);
     setIsAlbumModalOpen(false);
     setIsArtistModalOpen(true);
@@ -1370,7 +1386,8 @@ export default function App() {
       {/* Top Ticker & Sticky Header */}
       <Header
         searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
+        setSearchQuery={handleSearchQueryChange}
+        onClearSearch={handleClearSearch}
         onSearchSubmit={() => void handleSearchSubmit()}
         onRequestClick={() => setIsRequestModalOpen(true)}
         onBoothClick={() => setIsPairingModalOpen(true)}
@@ -1382,7 +1399,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 lg:px-8 py-6 space-y-8 pb-28 md:pb-36">
-        {/* Hero Section: Live Soundstage Booth */}
+        {/* Hero Section: Live Soundstage Booth — always visible */}
         <div ref={heroSectionRef}>
           <SoundstageHero
             currentTrack={currentTrack}
@@ -1400,25 +1417,43 @@ export default function App() {
           />
         </div>
 
-        {/* 2-Column Grid: 8 Cols Playlists / 4 Cols Philosophy & Requests Queue */}
+        {/* 2-Column Grid: 8 Cols Playlists (or search results) / 4 Cols Philosophy & Requests Queue */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Playlists Shelves */}
+          {/* Left Column: Playlists Shelves, replaced by search results while search is active */}
           <div className="lg:col-span-8">
-            <PlaylistGrid
-              timeSlots={timeSlots}
-              activePlaylistId={activePlaylistId}
-              onSelectPlaylist={handleSelectPlaylist}
-              onViewAllSlot={(slot) => {
-                if (slot.playlists.length > 0) {
-                  handleSelectPlaylist(slot.playlists[0]);
-                }
-              }}
-              onOpenSpotify={(target) => handleOpenSpotify(target)}
-              activeFilterTag={activeFilterTag}
-              searchQuery={searchQuery}
-              language={language}
-              theme={theme}
-            />
+            {isSearchActive ? (
+              <SearchResultsPanel
+                query={searchQuery}
+                tracks={searchResults}
+                isLoading={isSearchLoading}
+                error={searchError}
+                currentTrackId={currentTrack.id}
+                isPlaying={isPlaying}
+                onClear={handleClearSearch}
+                onSearch={(query) => void handleSearchSubmit(query)}
+                onPlayTrack={(track) => {
+                  void handlePlaySearchTrack(track, searchQuery, searchResults);
+                }}
+                language={language}
+                theme={theme}
+              />
+            ) : (
+              <PlaylistGrid
+                timeSlots={timeSlots}
+                activePlaylistId={activePlaylistId}
+                onSelectPlaylist={handleSelectPlaylist}
+                onViewAllSlot={(slot) => {
+                  if (slot.playlists.length > 0) {
+                    handleSelectPlaylist(slot.playlists[0]);
+                  }
+                }}
+                onOpenSpotify={(target) => handleOpenSpotify(target)}
+                activeFilterTag={activeFilterTag}
+                searchQuery={searchQuery}
+                language={language}
+                theme={theme}
+              />
+            )}
           </div>
 
           {/* Right Column: DNA & Live Request Queue */}
@@ -1532,23 +1567,6 @@ export default function App() {
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
         onSubmitRequest={handleSubmitRequest}
-        language={language}
-        theme={theme}
-      />
-
-      <SearchResultsModal
-        query={searchQuery}
-        tracks={searchResults}
-        isOpen={isSearchModalOpen}
-        isLoading={isSearchLoading}
-        error={searchError}
-        currentTrackId={currentTrack.id}
-        isPlaying={isPlaying}
-        onClose={() => setIsSearchModalOpen(false)}
-        onSearch={(query) => void handleSearchSubmit(query)}
-        onPlayTrack={(track) => {
-          void handlePlaySearchTrack(track, searchQuery, searchResults);
-        }}
         language={language}
         theme={theme}
       />
