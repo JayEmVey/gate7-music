@@ -1,5 +1,5 @@
 import React from 'react';
-import { SpeakerZone, Language } from '../types';
+import { SpeakerZone, Language, Theme } from '../types';
 import { useModalBehavior } from './useModalBehavior';
 
 interface SpotifySyncModalProps {
@@ -10,6 +10,7 @@ interface SpotifySyncModalProps {
   volume: number;
   onChangeVolume: (vol: number) => void;
   language: Language;
+  theme?: Theme;
 }
 
 export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
@@ -20,15 +21,20 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
   volume,
   onChangeVolume,
   language,
+  theme = 'dark',
 }) => {
   useModalBehavior(isOpen, onClose);
+
+  const isLight = theme === 'light';
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-xl max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] bg-[#18181C] border-4 border-[#1DB954] shadow-brutal-xl p-4 sm:p-7 overflow-y-auto overflow-x-hidden text-gray-100"
+        className={`relative w-full max-w-xl max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] border-4 border-[#1DB954] shadow-brutal-xl p-4 sm:p-7 overflow-y-auto overflow-x-hidden ${
+          isLight ? 'bg-white text-black' : 'bg-[#18181C] text-gray-100'
+        }`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="sync-modal-title"
@@ -39,22 +45,26 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
           onClick={onClose}
           type="button"
           aria-label={language === 'vi' ? 'Đóng đồng bộ Spotify' : 'Close Spotify sync'}
-          className="absolute top-4 right-4 z-20 w-8 h-8 bg-[#222018] hover:bg-[#1DB954] hover:text-[#0D0D0E] border-2 border-[#1DB954] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal"
+          className={`absolute top-4 right-4 z-20 w-8 h-8 hover:bg-[#1DB954] hover:text-[#0D0D0E] border-2 border-[#1DB954] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal ${
+            isLight ? 'bg-white text-black' : 'bg-[#222018]'
+          }`}
         >
           ✕
         </button>
 
         {/* Header */}
-        <div className="space-y-1.5 mb-6 border-b-2 border-[#2E2E38] pb-4">
+        <div className={`space-y-1.5 mb-6 border-b-2 pb-4 ${isLight ? 'border-gray-200' : 'border-[#2E2E38]'}`}>
           <div className="inline-flex items-center gap-2 bg-[#1DB954] text-[#0D0D0E] text-[10px] font-black uppercase px-2 py-0.5 border border-black shadow-brutal">
             <i className="fa-brands fa-spotify"></i>
             {language === 'vi' ? 'SPOTIFY SOUNDSTAGE INTEGRATION' : 'SPOTIFY SOUNDSTAGE INTEGRATION'}
           </div>
-          <h2 id="sync-modal-title" className="text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+          <h2 id="sync-modal-title" className={`text-2xl font-black uppercase tracking-tight flex items-center gap-2 ${
+            isLight ? 'text-black' : 'text-white'
+          }`}>
             <span>{language === 'vi' ? 'Đồng Bộ Âm Thanh Quán' : 'Roastery Soundstage Sync'}</span>
             <span className="w-2.5 h-2.5 rounded-full bg-[#1ed760] animate-ping"></span>
           </h2>
-          <p className="text-xs text-gray-300 font-medium">
+          <p className={`text-xs font-medium ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
             {language === 'vi'
               ? 'Hệ thống âm thanh Gate 7 được đồng bộ hoá trực tiếp với tài khoản Spotify Barista Master Session.'
               : 'Gate 7 sound system is live-synced with Spotify Barista Master Session.'}
@@ -62,14 +72,16 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
         </div>
 
         {/* Sync Status Badge */}
-        <div className="p-4 bg-[#141416] border-2 border-[#2E2E38] shadow-brutal space-y-3 mb-6">
+        <div className={`p-4 border-2 shadow-brutal space-y-3 mb-6 ${
+          isLight ? 'bg-[#F9FAFB] border-gray-300' : 'bg-[#141416] border-[#2E2E38]'
+        }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-[#1DB954]/20 border border-[#1DB954] text-[#1ed760] flex items-center justify-center text-xl shadow-brutal">
                 <i className="fa-brands fa-spotify animate-pulse"></i>
               </div>
               <div>
-                <div className="text-xs font-black text-white">GATE 7 ROASTERY SOUNDSTAGE #1</div>
+                <div className={`text-xs font-black ${isLight ? 'text-black' : 'text-white'}`}>GATE 7 ROASTERY SOUNDSTAGE #1</div>
                 <div className="text-[11px] font-medium text-[#1ed760] flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#1ed760] inline-block"></span>
                   {language === 'vi' ? 'Đang phát sóng trực tiếp (Lossless 320kbps)' : 'Live broadcasting (Lossless 320kbps)'}
@@ -81,7 +93,9 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
             </span>
           </div>
 
-          <div className="pt-2 border-t border-[#262630] flex items-center justify-between text-xs font-bold text-gray-400">
+          <div className={`pt-2 border-t flex items-center justify-between text-xs font-bold ${
+            isLight ? 'border-gray-200 text-gray-500' : 'border-[#262630] text-gray-400'
+          }`}>
             <span>{language === 'vi' ? 'Độ trễ truyền âm:' : 'Audio latency:'} &lt; 15ms</span>
             <span className="text-[#FEBC11]">100% Hi-Fi Stereo</span>
           </div>
@@ -90,15 +104,17 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
         {/* 72dB Standard Calibration */}
         <div className="space-y-3 mb-6">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-wider text-gray-300">
+            <span className={`text-xs font-black uppercase tracking-wider ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
               {language === 'vi' ? 'CHUẨN ÂM HỌC QUÁN (70 - 75dB)' : 'ROASTERY ACOUSTIC STANDARD (70 - 75dB)'}
             </span>
             <span className="text-xs font-mono font-black text-[#FEBC11]">72.4 dB OPTIMAL</span>
           </div>
-          <div className="w-full bg-[#202026] border-2 border-[#33333E] h-4 p-0.5 shadow-brutal overflow-hidden">
+          <div className={`w-full border-2 h-4 p-0.5 shadow-brutal overflow-hidden ${
+            isLight ? 'bg-gray-100 border-gray-300' : 'bg-[#202026] border-[#33333E]'
+          }`}>
             <div className="bg-gradient-to-r from-emerald-500 via-[#FEBC11] to-amber-500 h-full w-[72%]"></div>
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className={`text-[11px] ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
             {language === 'vi'
               ? 'Âm lượng tại Gate 7 luôn được Barista đo đạc và giữ ở mức 70-75dB, đủ để kích thích sự tập trung và trò chuyện mà không gây mỏi tai.'
               : 'Volume is calibrated to 70–75dB, ideal for creative work and conversation without acoustic fatigue.'}
@@ -107,7 +123,7 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
 
         {/* Speaker Zone Routing */}
         <div className="space-y-3 mb-6">
-          <label className="block text-xs font-black uppercase text-gray-300">
+          <label className={`block text-xs font-black uppercase ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
             {language === 'vi' ? 'ĐIỀU HƯỚNG LOA THEO KHU VỰC' : 'SPEAKER ZONE ROUTING'}
           </label>
           <div className="grid grid-cols-2 gap-2.5">
@@ -122,15 +138,19 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
                 onClick={() => onSelectSpeakerZone(zone.id as SpeakerZone)}
                 className={`p-3 border-2 text-left shadow-brutal transition-all cursor-pointer ${
                   speakerZone === zone.id
-                    ? 'bg-[#24221A] border-[#FEBC11] text-white'
-                    : 'bg-[#1E1E24] border-[#2E2E38] text-gray-300 hover:border-gray-500'
+                    ? isLight
+                      ? 'bg-[#FFFDF0] border-[#FEBC11] text-black'
+                      : 'bg-[#24221A] border-[#FEBC11] text-white'
+                    : isLight
+                      ? 'bg-[#F9FAFB] border-gray-300 text-gray-700 hover:border-gray-500'
+                      : 'bg-[#1E1E24] border-[#2E2E38] text-gray-300 hover:border-gray-500'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black">{zone.label}</span>
                   {speakerZone === zone.id && <span className="text-[#FEBC11]">●</span>}
                 </div>
-                <div className="text-[10px] text-gray-400 mt-0.5">{zone.note}</div>
+                <div className={`text-[10px] mt-0.5 ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>{zone.note}</div>
               </button>
             ))}
           </div>
@@ -138,7 +158,7 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
 
         {/* Master Volume Slider */}
         <div className="space-y-2 mb-6">
-          <div className="flex items-center justify-between text-xs font-black uppercase text-gray-300">
+          <div className={`flex items-center justify-between text-xs font-black uppercase ${isLight ? 'text-gray-700' : 'text-gray-300'}`}>
             <span>{language === 'vi' ? 'Âm lượng Master' : 'Master Volume'}</span>
             <span className="font-mono text-[#FEBC11]">{volume}%</span>
           </div>
@@ -148,12 +168,12 @@ export const SpotifySyncModal: React.FC<SpotifySyncModalProps> = ({
             max="100"
             value={volume}
             onChange={(e) => onChangeVolume(Number(e.target.value))}
-            className="w-full accent-[#FEBC11] bg-[#282830] h-2 rounded cursor-pointer"
+            className={`w-full accent-[#FEBC11] h-2 rounded cursor-pointer ${isLight ? 'bg-gray-200' : 'bg-[#282830]'}`}
           />
         </div>
 
         {/* Action Link */}
-        <div className="pt-4 border-t-2 border-[#2E2E38] flex items-center justify-between gap-3">
+        <div className={`pt-4 border-t-2 flex items-center justify-between gap-3 ${isLight ? 'border-gray-200' : 'border-[#2E2E38]'}`}>
           <a
             href="https://open.spotify.com"
             target="_blank"

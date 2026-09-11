@@ -1148,6 +1148,7 @@ export default function App() {
         onClose={() => setIsRequestModalOpen(false)}
         onSubmitRequest={handleSubmitRequest}
         language={language}
+        theme={theme}
       />
 
       <SearchResultsModal
@@ -1177,6 +1178,7 @@ export default function App() {
           void handlePlaySpecificTrack(track, searchPlaylist);
         }}
         language={language}
+        theme={theme}
       />
 
       <PlaylistDetailModal
@@ -1191,6 +1193,7 @@ export default function App() {
         }}
         onOpenSpotify={(target) => handleOpenSpotify(target)}
         language={language}
+        theme={theme}
       />
 
       {/* Spotify Chooser Modal (Desktop App or Web Browser) */}
@@ -1199,6 +1202,7 @@ export default function App() {
         onClose={() => setSpotifyChooserTarget(null)}
         target={spotifyChooserTarget}
         language={language}
+        theme={theme}
       />
 
       <PairingGuideModal
@@ -1208,6 +1212,7 @@ export default function App() {
         onFilterSimilarSongs={handleFilterSimilarSongs}
         language={language}
         currentTrack={currentTrack}
+        theme={theme}
       />
     </div>
   );
