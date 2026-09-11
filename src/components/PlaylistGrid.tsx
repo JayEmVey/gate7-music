@@ -26,9 +26,8 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
   language,
   theme = 'dark',
 }) => {
-  // By default, only show playlists in the same time frame (slot-current).
-  // Clicking "View All" toggles to show all time frames.
-  const [showAllTimeSlots, setShowAllTimeSlots] = useState<boolean>(false);
+  // Manual override for View All / Collapse. null = follow now-playing auto rules.
+  const [manualShowAll, setManualShowAll] = useState<boolean | null>(null);
   const [, forceClockRefresh] = useState(() => Date.now());
   const isLight = theme === 'light';
 
@@ -38,6 +37,28 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
   }, []);
 
   const currentSlotId = `slot-${getCurrentSlotKey()}`;
+
+  // Auto expand when the active playlist lives outside the clock's current slot;
+  // stay collapsed when it belongs to the current slot (or is unknown).
+  const activePlaylistInCurrentSlot = React.useMemo(
+    () =>
+      timeSlots
+        .find((slot) => slot.id === currentSlotId)
+        ?.playlists.some((playlist) => playlist.id === activePlaylistId) ?? false,
+    [timeSlots, currentSlotId, activePlaylistId],
+  );
+
+  // Re-apply auto rules whenever playback source or clock slot changes.
+  React.useEffect(() => {
+    setManualShowAll(null);
+  }, [activePlaylistId, currentSlotId]);
+
+  const showAllTimeSlots = manualShowAll ?? !activePlaylistInCurrentSlot;
+
+  const setShowAllTimeSlots = (next: boolean | ((prev: boolean) => boolean)) => {
+    const resolved = typeof next === 'function' ? next(showAllTimeSlots) : next;
+    setManualShowAll(resolved);
+  };
 
   const getSlotStartMinutes = (slot: TimeSlot) => {
     const match = slot.timeRange.match(/(\d+)\s*([AP]M)/i);
@@ -75,6 +96,27 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
     return textMatch && tagMatch;
   };
 
+  // When auto-expanded for an out-of-slot playlist, scroll that slot into view once.
+  React.useEffect(() => {
+    if (manualShowAll !== null) return;
+    const inCurrentSlot = timeSlots
+      .find((slot) => slot.id === currentSlotId)
+      ?.playlists.some((playlist) => playlist.id === activePlaylistId) ?? false;
+    if (inCurrentSlot) return;
+
+    const activeSlot = timeSlots.find((slot) =>
+      slot.playlists.some((playlist) => playlist.id === activePlaylistId),
+    );
+    if (!activeSlot) return;
+
+    const timer = window.setTimeout(() => {
+      document.getElementById(activeSlot.id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 120);
+    return () => window.clearTimeout(timer);
+    // Only re-scroll when the playback playlist or clock slot changes — not on every timeSlots refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlaylistId, currentSlotId]);
+
   return (
     <div className="space-y-10">
       {(showAllTimeSlots ? [...timeSlots].sort((a, b) => getSlotStartMinutes(a) - getSlotStartMinutes(b)) : timeSlots.filter((slot) => slot.id === currentSlotId)).map((slot) => {
@@ -101,7 +143,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                         isLight ? 'bg-black text-[#FEBC11]' : 'bg-[#FEBC11] text-[#0D0D0E]'
                       }`}
                     >
-                      ★ {language === 'vi' ? 'ĐANG CHỌN PHÁT' : 'NOW PLAYING SLOT'}
+                      ★ {language === 'vi' ? 'NOW' : 'NOW'}
                     </span>
                   ) : (
                     <span
@@ -143,8 +185,8 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                   >
                     <span>
                       {language === 'vi'
-                        ? (showAllTimeSlots ? 'THU GỌN' : `XEM TẤT CẢ (${slot.playlists.length} LIST)`)
-                        : (showAllTimeSlots ? 'COLLAPSE' : `VIEW ALL (${slot.playlists.length} LISTS)`)}
+                        ? (showAllTimeSlots ? 'THU GỌN' : `XEM TẤT CẢ (${slot.playlists.length} KHUNG GIỜ)`)
+                        : (showAllTimeSlots ? 'COLLAPSE' : `VIEW ALL (${slot.playlists.length} SLOTS)`)}
                     </span>
                     <span>{showAllTimeSlots ? '←' : '→'}</span>
                   </button>
@@ -155,8 +197,10 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
             {/* Grid of Playlist Cards */}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
               {matchingPlaylists.map((playlist) => {
-                const isActive = isCurrentSlot && playlist.id === activePlaylistId;
-                const isNowPlaying = isCurrentSlot && Boolean(playlist.isNowPlaying);
+                // Single source of truth: only the active Spotify playback playlist.
+                // Do not OR with track-membership flags — shared tracks across
+                // playlists previously lit multiple LIVE cards at once.
+                const isActive = playlist.id === activePlaylistId;
                 const cover = playlistCover(playlist);
 
                 return (
@@ -164,7 +208,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                     key={playlist.id}
                     onClick={() => onSelectPlaylist(playlist)}
                     className={`group flex flex-col cursor-pointer transition-all hover:-translate-y-1 overflow-hidden ${
-                      isNowPlaying || isActive
+                      isActive
                         ? isLight
                           ? 'border-3 border-black shadow-[5px_5px_0px_#000000] bg-[#FFFDF0]'
                           : 'border-2 border-[#FEBC11] shadow-brutal bg-[#1A1A1E]'
@@ -185,14 +229,14 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
 
                       {/* NOW PLAYING badge — top right */}
-                      {(isNowPlaying || isActive) && (
+                      {/* {isActive && (
                         <div className="absolute top-0 right-0 bg-black text-[#FEBC11] text-[9px] font-black uppercase px-2 py-1 border-b border-l border-black tracking-wider">
                           NOW PLAYING
                         </div>
-                      )}
+                      )} */}
 
                       {/* Equalizer animation overlay at bottom-left when now playing */}
-                      {(isNowPlaying || isActive) && (
+                      {isActive && (
                         <div className="absolute bottom-2 left-2 flex items-end gap-0.5 h-4">
                           <span className="w-1 bg-[#FEBC11] rounded-t animate-equalizer-1 h-full opacity-90"></span>
                           <span className="w-1 bg-[#FEBC11] rounded-t animate-equalizer-2 h-full opacity-90"></span>
@@ -230,9 +274,9 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
                         <span>
                           {playlist.duration} • {playlist.trackCount} {language === 'vi' ? 'bài' : 'tracks'}
                         </span>
-                        {(isNowPlaying || isActive) && (
+                        {isActive && (
                           <span className="bg-[#FEBC11] text-[#0D0D0E] px-1.5 py-0.5 font-sans font-black text-[9px] border border-black uppercase">
-                            {language === 'vi' ? 'Đang phát' : 'Live'}
+                            {language === 'vi' ? 'Đang phát' : 'Now Playing'}
                           </span>
                         )}
                       </div>

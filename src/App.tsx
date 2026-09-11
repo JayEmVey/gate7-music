@@ -54,6 +54,26 @@ function getInitialActivePlaylistId(): string {
     || 'bossa-nova-indie';
 }
 
+/** Ensure only one playlist is marked isNowPlaying (matches activePlaylistId). */
+function withExclusiveNowPlaying(slots: TimeSlot[], activeId: string): TimeSlot[] {
+  let changed = false;
+  const next = slots.map((slot) => ({
+    ...slot,
+    playlists: slot.playlists.map((playlist) => {
+      const isNowPlaying = playlist.id === activeId;
+      if (playlist.isNowPlaying !== isNowPlaying) changed = true;
+      return playlist.isNowPlaying === isNowPlaying ? playlist : { ...playlist, isNowPlaying };
+    }),
+  }));
+  return changed ? next : slots;
+}
+
+function findPlaylistIdBySpotifyId(slots: TimeSlot[], spotifyPlaylistId: string): string | undefined {
+  return slots
+    .flatMap((slot) => slot.playlists)
+    .find((playlist) => playlist.spotifyId === spotifyPlaylistId)?.id;
+}
+
 function toAppTrack(track: any, fallbackCover = '', previousTrack?: Track): Track {
   const spotifyId = track.id;
   const durationSec = Math.floor((track.duration_ms || track.durationSec * 1000 || 0) / 1000);
@@ -132,6 +152,7 @@ export default function App() {
   const [likesCount, setLikesCount] = useState<number>(46);
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [activePlaylistId, setActivePlaylistId] = useState<string>(getInitialActivePlaylistId);
+  const activePlaylistIdRef = useRef(activePlaylistId);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(getInitialTimeSlots);
   const [requestQueue, setRequestQueue] = useState<RequestTicket[]>(INITIAL_REQUESTS);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -167,6 +188,11 @@ export default function App() {
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
+
+  useEffect(() => {
+    activePlaylistIdRef.current = activePlaylistId;
+    setTimeSlots((slots) => withExclusiveNowPlaying(slots, activePlaylistId));
+  }, [activePlaylistId]);
 
   useEffect(() => {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
@@ -216,7 +242,7 @@ export default function App() {
         failedPlaylistIdsRef.current.clear();
 
         setTimeSlots((prev) => {
-          return prev.map((slot) => {
+          const merged = prev.map((slot) => {
             let slotKey = '';
             if (slot.id === 'slot-morning') slotKey = 'morning';
             else if (slot.id === 'slot-afternoon') slotKey = 'afternoon';
@@ -249,6 +275,7 @@ export default function App() {
             }
             return slot;
           });
+          return withExclusiveNowPlaying(merged, activePlaylistIdRef.current);
         });
       })
       .catch((err) => console.error('Failed to load playlists.json:', err));
@@ -378,13 +405,21 @@ export default function App() {
         setCurrentTrack(liveTrack);
         setPlaybackSec(Math.floor((state.position || 0) / 1000));
         setIsPlaying(!state.paused);
-        setTimeSlots((slots) => slots.map((slot) => ({
-          ...slot,
-          playlists: slot.playlists.map((playlist) => ({
-            ...playlist,
-            isNowPlaying: playlist.tracks.some((track) => track.spotifyId === liveTrack.spotifyId),
-          })),
-        })));
+
+        // Prefer Spotify playlist context so LIVE moves with the real source playlist.
+        // Never mark every playlist that merely contains the track — that duplicates LIVE.
+        const contextId = state.context?.uri?.startsWith('spotify:playlist:')
+          ? state.context.uri.split(':').pop()
+          : undefined;
+        if (contextId) {
+          setTimeSlots((slots) => {
+            const matchingId = findPlaylistIdBySpotifyId(slots, contextId);
+            if (matchingId && matchingId !== activePlaylistIdRef.current) {
+              setActivePlaylistId(matchingId);
+            }
+            return matchingId ? withExclusiveNowPlaying(slots, matchingId) : slots;
+          });
+        }
       });
       player.connect();
     };
@@ -474,11 +509,11 @@ export default function App() {
           : undefined;
         if (contextId) {
           setTimeSlots((slots) => {
-            const matchingPlaylist = slots
-              .flatMap((slot) => slot.playlists)
-              .find((playlist) => playlist.spotifyId === contextId);
-            if (matchingPlaylist) setActivePlaylistId(matchingPlaylist.id);
-            return slots;
+            const matchingId = findPlaylistIdBySpotifyId(slots, contextId);
+            if (matchingId && matchingId !== activePlaylistIdRef.current) {
+              setActivePlaylistId(matchingId);
+            }
+            return matchingId ? withExclusiveNowPlaying(slots, matchingId) : slots;
           });
         }
       } catch (error) {
@@ -949,12 +984,15 @@ export default function App() {
         tracks,
         trackCount: tracks.length,
         coverUrl: playlist.coverUrl || tracks.find((track) => track.coverUrl)?.coverUrl,
-        isNowPlaying: tracks.some((track) => track.spotifyId === currentTrack.spotifyId),
+        isNowPlaying: playlist.id === activePlaylistIdRef.current,
       };
-      setTimeSlots((slots) => slots.map((slot) => ({
-        ...slot,
-        playlists: slot.playlists.map((item) => item.id === playlist.id ? updatedPlaylist : item),
-      })));
+      setTimeSlots((slots) => withExclusiveNowPlaying(
+        slots.map((slot) => ({
+          ...slot,
+          playlists: slot.playlists.map((item) => item.id === playlist.id ? updatedPlaylist : item),
+        })),
+        activePlaylistIdRef.current,
+      ));
       setSelectedPlaylistForModal(updatedPlaylist);
     } catch (error) {
       console.warn('Could not load Spotify playlist tracks:', error);
