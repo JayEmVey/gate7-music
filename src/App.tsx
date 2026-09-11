@@ -7,10 +7,12 @@ import { BottomPlayer } from './components/BottomPlayer';
 import { RequestModal } from './components/RequestModal';
 import { PlaylistDetailModal } from './components/PlaylistDetailModal';
 import { SearchResultsModal } from './components/SearchResultsModal';
+import { AlbumDetailModal } from './components/AlbumDetailModal';
+import { ArtistPopularModal } from './components/ArtistPopularModal';
 import { SpotifyChooserModal, SpotifyItemTarget } from './components/SpotifyChooserModal';
 import { PairingGuideModal } from './components/PairingGuideModal';
 import { INITIAL_TIME_SLOTS, INITIAL_REQUESTS, getTrackCover } from './data';
-import { Track, Playlist, TimeSlot, RequestTicket, SpeakerZone, Language, Theme, SpotifyWebPlaybackPlayer } from './types';
+import { Track, Playlist, TimeSlot, RequestTicket, Language, Theme, SpotifyWebPlaybackPlayer, AlbumDetail, ArtistDetail, ShuffleMode, RepeatMode } from './types';
 import {
   getSpotifyUserAuthUrl,
   checkAndStoreUserTokenFromUrl,
@@ -19,6 +21,10 @@ import {
   fetchCachedPlaylistTracks,
   fetchSpotifySearchTracks,
   fetchSpotifyTrackAudioFeatures,
+  fetchSpotifyAlbum,
+  fetchSpotifyPlaylistMeta,
+  fetchSpotifyArtist,
+  fetchSpotifyArtistTopTracks,
   SONIC_CATEGORY_QUERIES,
   fetchSpotifyPlaybackState,
   fetchSpotifyQueue,
@@ -76,21 +82,56 @@ function findPlaylistIdBySpotifyId(slots: TimeSlot[], spotifyPlaylistId: string)
 }
 
 function toAppTrack(track: any, fallbackCover = '', previousTrack?: Track): Track {
-  const spotifyId = track.id;
+  const spotifyId = track.id || track.spotifyId;
   const durationSec = Math.floor((track.duration_ms || track.durationSec * 1000 || 0) / 1000);
+  const artistId = track.artists?.[0]?.id || track.artistId || previousTrack?.artistId;
+  const albumId = track.album?.id || track.albumId || previousTrack?.albumId;
   return {
-    id: `spotify-${spotifyId}`,
+    id: spotifyId ? `spotify-${spotifyId}` : track.id || `local-${Date.now()}`,
     spotifyId,
     title: track.name || track.title,
     artist: track.artists?.map((artist: { name: string }) => artist.name).join(', ') || track.artist || 'Unknown Artist',
+    artistId,
     album: track.album?.name || track.album || 'Spotify Playback',
-    duration: `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}`,
+    albumId,
+    albumType: track.album?.album_type || track.albumType || previousTrack?.albumType,
+    releaseDate: track.album?.release_date || track.releaseDate || previousTrack?.releaseDate,
+    duration: track.duration || `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}`,
     durationSec,
-    coffeePairing: 'Drip Drop Coffee',
-    genre: 'Spotify Web Playback',
+    coffeePairing: track.coffeePairing || 'Drip Drop Coffee',
+    genre: track.genre || 'Spotify Web Playback',
     coverUrl: track.album?.images?.[0]?.url || track.coverUrl || fallbackCover,
     audioFeatures: track.audioFeatures || (previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'worker' ? previousTrack.audioFeatures : undefined),
     audioFeaturesSource: track.audioFeatures ? 'worker' : previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'worker' ? 'worker' : undefined,
+  };
+}
+
+function spotifyPlaylistTrackToAppTrack(track: {
+  id: string;
+  title: string;
+  artist: string;
+  artistId?: string;
+  album: string;
+  albumId?: string;
+  albumType?: string;
+  releaseDate?: string;
+  durationSec: number;
+  coverUrl: string;
+}): Track {
+  return {
+    id: `spotify-${track.id}`,
+    spotifyId: track.id,
+    title: track.title,
+    artist: track.artist,
+    artistId: track.artistId,
+    album: track.album,
+    albumId: track.albumId,
+    albumType: track.albumType,
+    releaseDate: track.releaseDate,
+    duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
+    durationSec: track.durationSec,
+    coffeePairing: 'Drip Drop Coffee',
+    coverUrl: track.coverUrl,
   };
 }
 
@@ -162,10 +203,21 @@ export default function App() {
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string>();
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
-  const [speakerZone, setSpeakerZone] = useState<SpeakerZone>('main');
   const [volume, setVolume] = useState<number>(72);
-  const [isShuffle, setIsShuffle] = useState<boolean>(false);
-  const [isRepeat, setIsRepeat] = useState<boolean>(false);
+  const volumeBeforeMuteRef = useRef(72);
+  const [shuffleMode, setShuffleMode] = useState<ShuffleMode>('off');
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
+  const [playbackContextName, setPlaybackContextName] = useState<string>('');
+  const [playbackContextUri, setPlaybackContextUri] = useState<string>('');
+  const playbackContextUriRef = useRef('');
+  const [albumModal, setAlbumModal] = useState<AlbumDetail | null>(null);
+  const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
+  const [isAlbumLoading, setIsAlbumLoading] = useState(false);
+  const [albumError, setAlbumError] = useState<string>();
+  const [artistModal, setArtistModal] = useState<ArtistDetail | null>(null);
+  const [isArtistModalOpen, setIsArtistModalOpen] = useState(false);
+  const [isArtistLoading, setIsArtistLoading] = useState(false);
+  const [artistError, setArtistError] = useState<string>();
   const [language, setLanguage] = useState<Language>(getStoredLanguage);
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
   const [spotifyAuthStatus, setSpotifyAuthStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
@@ -200,6 +252,31 @@ export default function App() {
     activePlaylistIdRef.current = activePlaylistId;
     setTimeSlots((slots) => withExclusiveNowPlaying(slots, activePlaylistId));
   }, [activePlaylistId]);
+
+  useEffect(() => {
+    playbackContextUriRef.current = playbackContextUri;
+  }, [playbackContextUri]);
+
+  const resolvePlaybackContext = useCallback(async (contextUri?: string | null, fallbackName?: string) => {
+    const uri = contextUri || '';
+    setPlaybackContextUri(uri);
+    playbackContextUriRef.current = uri;
+
+    if (uri.startsWith('spotify:playlist:')) {
+      const playlistId = uri.split(':').pop();
+      if (!playlistId) return;
+      if (fallbackName) setPlaybackContextName(fallbackName);
+      try {
+        const meta = await fetchSpotifyPlaylistMeta(playlistId);
+        if (meta?.name) setPlaybackContextName(meta.name);
+      } catch {
+        // Keep fallback / previous name.
+      }
+      return;
+    }
+
+    if (fallbackName) setPlaybackContextName(fallbackName);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
@@ -377,6 +454,10 @@ export default function App() {
             setCurrentTrack(liveTrack);
             setPlaybackSec(Math.floor(Math.max(0, state.progress_ms || 0) / 1000));
             setIsPlaying(Boolean(state.is_playing));
+            void resolvePlaybackContext(
+              state.context?.uri || '',
+              state.context?.type === 'album' ? (state.item?.album?.name || 'Album') : undefined,
+            );
             pendingRestoreRef.current = null;
             return;
           }
@@ -427,8 +508,15 @@ export default function App() {
 
         // Prefer Spotify playlist context so LIVE moves with the real source playlist.
         // Never mark every playlist that merely contains the track — that duplicates LIVE.
-        const contextId = state.context?.uri?.startsWith('spotify:playlist:')
-          ? state.context.uri.split(':').pop()
+        const contextUri = state.context?.uri || '';
+        void resolvePlaybackContext(
+          contextUri,
+          contextUri.startsWith('spotify:album:')
+            ? state.track_window.current_track.album?.name
+            : undefined,
+        );
+        const contextId = contextUri.startsWith('spotify:playlist:')
+          ? contextUri.split(':').pop()
           : undefined;
         if (contextId) {
           setTimeSlots((slots) => {
@@ -508,8 +596,14 @@ export default function App() {
         setSpotifySource(isGate7Device ? 'web' : 'desktop');
         setIsPlaying(Boolean(state.is_playing));
         setPlaybackSec(Math.floor(Math.max(0, state.progress_ms || 0) / 1000));
-        if (typeof state.shuffle_state === 'boolean') setIsShuffle(state.shuffle_state);
-        if (state.repeat_state) setIsRepeat(state.repeat_state !== 'off');
+        if (state.smart_shuffle) {
+          setShuffleMode('smart');
+        } else if (typeof state.shuffle_state === 'boolean') {
+          setShuffleMode(state.shuffle_state ? 'shuffle' : 'off');
+        }
+        if (state.repeat_state === 'track' || state.repeat_state === 'context' || state.repeat_state === 'off') {
+          setRepeatMode(state.repeat_state);
+        }
 
         if (currentItem?.id) {
           setCurrentTrack((previousTrack) => {
@@ -517,6 +611,8 @@ export default function App() {
             return previousTrack.spotifyId === nextTrack.spotifyId
               && previousTrack.title === nextTrack.title
               && previousTrack.artist === nextTrack.artist
+              && previousTrack.albumId === nextTrack.albumId
+              && previousTrack.artistId === nextTrack.artistId
               && previousTrack.durationSec === nextTrack.durationSec
               ? previousTrack
               : nextTrack;
@@ -526,6 +622,12 @@ export default function App() {
         const contextId = state.context?.type === 'playlist'
           ? state.context.uri?.split(':').pop()
           : undefined;
+        void resolvePlaybackContext(
+          state.context?.uri,
+          state.context?.type === 'album'
+            ? (currentItem?.album?.name || 'Album')
+            : undefined,
+        );
         if (contextId) {
           setTimeSlots((slots) => {
             const matchingId = findPlaylistIdBySpotifyId(slots, contextId);
@@ -535,6 +637,7 @@ export default function App() {
             return matchingId ? withExclusiveNowPlaying(slots, matchingId) : slots;
           });
         }
+        // Do not fall back to the track title — that overwrites "Next from" with the song name.
       } catch (error) {
         if (!cancelled) console.warn('Could not sync Spotify playback state:', error);
       } finally {
@@ -548,9 +651,19 @@ export default function App() {
       try {
         const state = await fetchSpotifyQueue();
         if (cancelled || !state) return;
+        const currentId = currentTrackRef.current.spotifyId;
+        const seen = new Set<string>();
         setSpotifyQueue((state.queue || [])
           .filter((item: any) => item?.id && item.type !== 'episode')
-          .map((item: any) => toAppTrack(item)));
+          .map((item: any) => toAppTrack(item))
+          .filter((track) => {
+            if (!track.spotifyId) return false;
+            // Single-track / autoplay sessions often repeat the current song in the queue.
+            if (currentId && track.spotifyId === currentId) return false;
+            if (seen.has(track.spotifyId)) return false;
+            seen.add(track.spotifyId);
+            return true;
+          }));
       } catch (error) {
         if (!cancelled) console.warn('Could not sync Spotify queue:', error);
       } finally {
@@ -740,17 +853,7 @@ export default function App() {
 
     try {
       const spotifyTracks = await fetchSpotifySearchTracks(query);
-      setSearchResults(spotifyTracks.map((track) => ({
-        id: `spotify-${track.id}`,
-        spotifyId: track.id,
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-        duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
-        durationSec: track.durationSec,
-        coffeePairing: 'Drip Drop Coffee',
-        coverUrl: track.coverUrl,
-      })));
+      setSearchResults(spotifyTracks.map(spotifyPlaylistTrackToAppTrack));
     } catch (error) {
       if (localTracks.length === 0) {
         setSearchError(error instanceof Error ? error.message : 'Spotify search failed.');
@@ -760,22 +863,137 @@ export default function App() {
     }
   };
 
-  const handleOpenCurrentTrack = () => {
-    const matchedPlaylist = timeSlots
-      .flatMap((slot) => slot.playlists)
-      .find((playlist) => playlist.tracks.some((track) => (
-        track.id === currentTrack.id
-        || (track.spotifyId && currentTrack.spotifyId && track.spotifyId === currentTrack.spotifyId)
-      )));
+  const handleOpenCurrentAlbum = async () => {
+    setIsSearchModalOpen(false);
+    setSelectedPlaylistForModal(null);
+    setIsArtistModalOpen(false);
+    setIsAlbumModalOpen(true);
+    setIsAlbumLoading(true);
+    setAlbumError(undefined);
 
-    if (matchedPlaylist) {
-      setIsSearchModalOpen(false);
-      setSelectedPlaylistForModal(matchedPlaylist);
-      return;
+    try {
+      let albumId = currentTrack.albumId;
+      if (!albumId && currentTrack.spotifyId) {
+        const state = await fetchSpotifyPlaybackState();
+        albumId = state?.item?.album?.id;
+        if (albumId) {
+          setCurrentTrack((previous) => previous.spotifyId === currentTrack.spotifyId
+            ? { ...previous, albumId, albumType: state?.item?.album?.album_type, releaseDate: state?.item?.album?.release_date }
+            : previous);
+        }
+      }
+      if (!albumId) {
+        throw new Error(language === 'vi' ? 'Không tìm thấy album của bài hát này.' : 'Could not find this track’s album.');
+      }
+
+      const album = await fetchSpotifyAlbum(albumId);
+      if (!album) throw new Error(language === 'vi' ? 'Không tải được album.' : 'Could not load album.');
+
+      setAlbumModal({
+        id: album.id,
+        name: album.name,
+        albumType: album.albumType,
+        releaseDate: album.releaseDate,
+        totalTracks: album.totalTracks,
+        coverUrl: album.coverUrl,
+        artists: album.artists,
+        copyrights: album.copyrights,
+        tracks: album.tracks.map(spotifyPlaylistTrackToAppTrack),
+      });
+    } catch (error) {
+      setAlbumModal(null);
+      setAlbumError(error instanceof Error ? error.message : 'Could not load album.');
+    } finally {
+      setIsAlbumLoading(false);
+    }
+  };
+
+  const handleOpenCurrentArtist = async () => {
+    setIsSearchModalOpen(false);
+    setSelectedPlaylistForModal(null);
+    setIsAlbumModalOpen(false);
+    setIsArtistModalOpen(true);
+    setIsArtistLoading(true);
+    setArtistError(undefined);
+
+    try {
+      let artistId = currentTrack.artistId;
+      if (!artistId && currentTrack.spotifyId) {
+        const state = await fetchSpotifyPlaybackState();
+        artistId = state?.item?.artists?.[0]?.id;
+        if (artistId) {
+          setCurrentTrack((previous) => previous.spotifyId === currentTrack.spotifyId
+            ? { ...previous, artistId }
+            : previous);
+        }
+      }
+      if (!artistId) {
+        throw new Error(language === 'vi' ? 'Không tìm thấy nghệ sĩ của bài hát này.' : 'Could not find this track’s artist.');
+      }
+
+      const artist = await fetchSpotifyArtist(artistId);
+      if (!artist) throw new Error(language === 'vi' ? 'Không tải được nghệ sĩ.' : 'Could not load artist.');
+
+      const topTracks = await fetchSpotifyArtistTopTracks(artistId, artist.name);
+
+      setArtistModal({
+        id: artist.id,
+        name: artist.name,
+        imageUrl: artist.imageUrl,
+        followers: artist.followers,
+        tracks: topTracks.map(spotifyPlaylistTrackToAppTrack),
+      });
+    } catch (error) {
+      setArtistModal(null);
+      setArtistError(error instanceof Error ? error.message : 'Could not load artist.');
+    } finally {
+      setIsArtistLoading(false);
+    }
+  };
+
+  const startPlaybackWithBody = async (playbackBody: Record<string, unknown>, fallbackTrack?: Track): Promise<boolean> => {
+    const player = spotifyPlayerRef.current;
+    const deviceId = spotifyDeviceIdRef.current;
+
+    if (player && deviceId) {
+      try {
+        await player.activateElement();
+        const transferred = await transferSpotifyPlayback(deviceId, false);
+        if (!transferred) {
+          setSpotifyDesktopStatus('Spotify browser player is unavailable');
+          return false;
+        }
+        const started = await startSpotifyPlayback(deviceId, playbackBody);
+        if (!started) {
+          setSpotifyDesktopStatus('Spotify rejected this playback request');
+          return false;
+        }
+        pendingRestoreRef.current = null;
+        if (fallbackTrack) {
+          setCurrentTrack(fallbackTrack);
+          setPlaybackSec(0);
+          setIsPlaying(true);
+        }
+        return true;
+      } catch (error) {
+        console.warn('Could not start Spotify playback via SDK:', error);
+      }
     }
 
-    setSelectedPlaylistForModal(null);
-    void handleSearchSubmit(currentTrack.title);
+    try {
+      const started = await startSpotifyPlayback(deviceId || undefined, playbackBody);
+      if (!started) throw new Error('Spotify rejected this playback request');
+      if (fallbackTrack) {
+        setCurrentTrack(fallbackTrack);
+        setPlaybackSec(0);
+        setIsPlaying(true);
+      }
+      return true;
+    } catch (error) {
+      console.warn('Could not start Spotify playback:', error);
+      setSpotifyDesktopStatus('Spotify player is still connecting');
+      return false;
+    }
   };
 
   const handlePlaySpecificTrack = async (track: Track, playlist: Playlist) => {
@@ -786,6 +1004,8 @@ export default function App() {
     const isRealSpotifyPlaylist = playlist.spotifyId
       && playlist.spotifyId !== 'search-results'
       && !playlist.spotifyId.startsWith('pl-')
+      && !playlist.spotifyId.startsWith('album-')
+      && !playlist.spotifyId.startsWith('artist-')
       && playlist.spotifyId.length > 10;
 
     const playlistTrackIndex = isRealSpotifyPlaylist
@@ -804,42 +1024,125 @@ export default function App() {
       return;
     }
 
-    const player = spotifyPlayerRef.current;
-    const deviceId = spotifyDeviceIdRef.current;
+    await startPlaybackWithBody(playbackBody, track);
+    setPlaybackContextName(playlist.title);
+    if (isRealSpotifyPlaylist && playlist.spotifyId) {
+      void resolvePlaybackContext(`spotify:playlist:${playlist.spotifyId}`, playlist.title);
+    } else {
+      // Single-track play has no playlist/album context. Clear the local queue so
+      // Spotify autoplay duplicates of the same song do not fill "Next from".
+      setPlaybackContextUri('');
+      playbackContextUriRef.current = '';
+      setSpotifyQueue([]);
+    }
+  };
 
-    // Path 1: SDK player is ready — activate, transfer, then play
-    if (player && deviceId) {
-      try {
-        await player.activateElement();
-        const transferred = await transferSpotifyPlayback(deviceId, false);
-        if (!transferred) {
-          setSpotifyDesktopStatus('Spotify browser player is unavailable');
-          return;
-        }
-        const started = await startSpotifyPlayback(deviceId, playbackBody);
-        if (!started) {
-          setSpotifyDesktopStatus('Spotify rejected this playback request');
-          return;
-        }
-        pendingRestoreRef.current = null;
-        return;
-      } catch (error) {
-        console.warn('Could not start selected Spotify track via SDK:', error);
-        // Fall through to remote-control path
-      }
+  const handlePlaySearchTrack = async (track: Track, query: string, results: Track[]) => {
+    if (!track.spotifyId) {
+      setSpotifyDesktopStatus('No Spotify ID for this track');
+      return;
     }
 
-    // Path 2: No local SDK — try remote-control play on whatever device is active
-    try {
-      const started = await startSpotifyPlayback(deviceId || undefined, playbackBody);
-      if (!started) throw new Error('Spotify rejected this playback request');
-      setCurrentTrack(track);
-      setPlaybackSec(0);
-      setIsPlaying(true);
-    } catch (error) {
-      console.warn('Could not start selected Spotify track:', error);
-      setSpotifyDesktopStatus('Spotify player is still connecting');
+    const seen = new Set<string>([track.spotifyId]);
+    const following = results.filter((candidate) => {
+      if (!candidate.spotifyId || seen.has(candidate.spotifyId)) return false;
+      seen.add(candidate.spotifyId);
+      return true;
+    });
+    const uris = [track.spotifyId, ...following.map((candidate) => candidate.spotifyId!)]
+      .map((id) => `spotify:track:${id}`);
+
+    const started = await startPlaybackWithBody({ uris }, track);
+    if (!started) return;
+
+    setActivePlaylistId('search-results');
+    setPlaybackContextName(`Search: ${query}`);
+    setPlaybackContextUri('');
+    playbackContextUriRef.current = '';
+    setSpotifyQueue(following);
+  };
+
+  const handlePlayAlbumTrack = async (track: Track, album: AlbumDetail) => {
+    if (!track.spotifyId) return;
+    const index = album.tracks.findIndex((candidate) => candidate.spotifyId === track.spotifyId);
+    await startPlaybackWithBody({
+      context_uri: `spotify:album:${album.id}`,
+      ...(index >= 0 ? { offset: { position: index } } : {}),
+    }, track);
+    void resolvePlaybackContext(`spotify:album:${album.id}`, album.name);
+  };
+
+  const handlePlayAlbum = async (album: AlbumDetail) => {
+    const first = album.tracks[0];
+    if (!first?.spotifyId) return;
+    await startPlaybackWithBody({
+      context_uri: `spotify:album:${album.id}`,
+    }, first);
+    void resolvePlaybackContext(`spotify:album:${album.id}`, album.name);
+  };
+
+  const handlePlayArtistTrack = async (track: Track, artist: ArtistDetail) => {
+    if (!track.spotifyId) return;
+    const uris = artist.tracks
+      .filter((candidate) => candidate.spotifyId)
+      .map((candidate) => `spotify:track:${candidate.spotifyId}`);
+    const offset = Math.max(0, artist.tracks.findIndex((candidate) => candidate.spotifyId === track.spotifyId));
+    await startPlaybackWithBody({
+      uris,
+      offset: { position: offset },
+    }, track);
+    setPlaybackContextName(artist.name);
+    setPlaybackContextUri('');
+    playbackContextUriRef.current = '';
+  };
+
+  const handlePlayArtist = async (artist: ArtistDetail) => {
+    const first = artist.tracks[0];
+    if (!first?.spotifyId) return;
+    const uris = artist.tracks
+      .filter((candidate) => candidate.spotifyId)
+      .map((candidate) => `spotify:track:${candidate.spotifyId}`);
+    await startPlaybackWithBody({ uris }, first);
+    setPlaybackContextName(artist.name);
+    setPlaybackContextUri('');
+    playbackContextUriRef.current = '';
+  };
+
+  const handlePlayQueueTrack = async (track: Track) => {
+    if (!track.spotifyId) return;
+    const trackUri = `spotify:track:${track.spotifyId}`;
+    const queueIndex = spotifyQueue.findIndex((item) => item.spotifyId === track.spotifyId);
+    if (queueIndex < 0) return;
+
+    const contextUri = playbackContextUriRef.current || playbackContextUri;
+    let started = false;
+
+    // Prefer jumping inside the active playlist/album so Spotify keeps "Next from" intact.
+    if (contextUri.startsWith('spotify:playlist:') || contextUri.startsWith('spotify:album:')) {
+      started = await startPlaybackWithBody({
+        context_uri: contextUri,
+        offset: { uri: trackUri },
+      }, track);
     }
+
+    // Fallback: continue from the clicked queue item through the rest of the queue.
+    // Keep the existing context name/URI label even if Spotify session becomes URI-based.
+    if (!started) {
+      const remaining = spotifyQueue
+        .slice(queueIndex)
+        .filter((item) => item.spotifyId)
+        .map((item) => `spotify:track:${item.spotifyId!}`);
+      started = await startPlaybackWithBody({
+        uris: remaining.length > 0 ? remaining : [trackUri],
+      }, track);
+    }
+
+    if (!started) return;
+
+    setSpotifyQueue((previous) => {
+      const index = previous.findIndex((item) => item.spotifyId === track.spotifyId);
+      return index >= 0 ? previous.slice(index + 1) : previous;
+    });
   };
 
   const handleNextTrack = async () => {
@@ -974,17 +1277,8 @@ export default function App() {
       if (!tracks) {
         let request = playlistTrackRequestsRef.current.get(playlist.id);
         if (!request) {
-          request = fetchCachedPlaylistTracks(playlist.spotifyId).then((spotifyTracks) => spotifyTracks.map((track) => ({
-            id: `spotify-${track.id}`,
-            spotifyId: track.id,
-            title: track.title,
-            artist: track.artist,
-            album: track.album,
-            duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
-            durationSec: track.durationSec,
-            coffeePairing: 'Drip Drop Coffee',
-            coverUrl: track.coverUrl,
-          })));
+          request = fetchCachedPlaylistTracks(playlist.spotifyId).then((spotifyTracks) =>
+            spotifyTracks.map(spotifyPlaylistTrackToAppTrack));
           playlistTrackRequestsRef.current.set(playlist.id, request);
         }
         try {
@@ -1023,25 +1317,46 @@ export default function App() {
   };
 
   const handleToggleShuffle = async () => {
-    const next = !isShuffle;
+    // Spotify Web API cannot enable Smart Shuffle; we mirror the official
+    // off ↔ shuffle toggle and surface Smart Shuffle when Spotify reports it.
+    const nextEnabled = shuffleMode === 'off';
     try {
-      const changed = await setSpotifyShuffle(next, spotifyDeviceIdRef.current || undefined);
+      const changed = await setSpotifyShuffle(nextEnabled, spotifyDeviceIdRef.current || undefined);
       if (!changed) throw new Error('Spotify rejected the shuffle request');
-      setIsShuffle(next);
+      setShuffleMode(nextEnabled ? 'shuffle' : 'off');
     } catch (error) {
       console.warn('Could not change Spotify shuffle:', error);
     }
   };
 
   const handleToggleRepeat = async () => {
-    const next = !isRepeat;
+    const next: RepeatMode = repeatMode === 'off'
+      ? 'context'
+      : repeatMode === 'context'
+        ? 'track'
+        : 'off';
     try {
-      const changed = await setSpotifyRepeatMode(next ? 'context' : 'off', spotifyDeviceIdRef.current || undefined);
+      const changed = await setSpotifyRepeatMode(next, spotifyDeviceIdRef.current || undefined);
       if (!changed) throw new Error('Spotify rejected the repeat request');
-      setIsRepeat(next);
+      setRepeatMode(next);
     } catch (error) {
       console.warn('Could not change Spotify repeat mode:', error);
     }
+  };
+
+  const handleChangeVolume = (nextVolume: number) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(nextVolume)));
+    if (clamped > 0) volumeBeforeMuteRef.current = clamped;
+    setVolume(clamped);
+  };
+
+  const handleMuteToggle = () => {
+    if (volume > 0) {
+      volumeBeforeMuteRef.current = volume;
+      setVolume(0);
+      return;
+    }
+    setVolume(volumeBeforeMuteRef.current > 0 ? volumeBeforeMuteRef.current : 80);
   };
 
   const isLight = theme === 'light';
@@ -1193,20 +1508,22 @@ export default function App() {
           onSeek={handleSeek}
           isLiked={isLiked}
           onToggleLike={handleToggleLike}
-          isShuffle={isShuffle}
+          shuffleMode={shuffleMode}
           onToggleShuffle={handleToggleShuffle}
-          isRepeat={isRepeat}
+          repeatMode={repeatMode}
           onToggleRepeat={handleToggleRepeat}
-          speakerZone={speakerZone}
-          onSelectSpeakerZone={setSpeakerZone}
           volume={volume}
-          onChangeVolume={setVolume}
-          onOpenTrackDetail={handleOpenCurrentTrack}
+          onChangeVolume={handleChangeVolume}
+          onMuteToggle={handleMuteToggle}
+          onOpenAlbum={() => void handleOpenCurrentAlbum()}
+          onOpenArtist={() => void handleOpenCurrentArtist()}
           onOpenSpotify={() => handleOpenSpotify()}
+          onPlayQueueTrack={(track) => void handlePlayQueueTrack(track)}
           spotifyQueue={spotifyQueue}
           language={language}
           theme={theme}
           isAudioFeaturesLoading={isAudioFeaturesLoading}
+          contextName={playbackContextName}
         />
       )}
 
@@ -1230,20 +1547,7 @@ export default function App() {
         onClose={() => setIsSearchModalOpen(false)}
         onSearch={(query) => void handleSearchSubmit(query)}
         onPlayTrack={(track) => {
-          const searchPlaylist: Playlist = {
-            id: 'search-results',
-            spotifyId: 'search-results',
-            title: `Search: ${searchQuery}`,
-            slotId: 'search',
-            slotName: 'Spotify Search',
-            description: 'Spotify search results',
-            trackCount: searchResults.length,
-            duration: '',
-            icon: 'fa-search',
-            accentColor: '#FEBC11',
-            tracks: searchResults,
-          };
-          void handlePlaySpecificTrack(track, searchPlaylist);
+          void handlePlaySearchTrack(track, searchQuery, searchResults);
         }}
         language={language}
         theme={theme}
@@ -1260,6 +1564,40 @@ export default function App() {
           if (selectedPlaylistForModal) void loadPlaylistTracks(selectedPlaylistForModal);
         }}
         onOpenSpotify={(target) => handleOpenSpotify(target)}
+        language={language}
+        theme={theme}
+      />
+
+      <AlbumDetailModal
+        album={albumModal}
+        isOpen={isAlbumModalOpen}
+        isLoading={isAlbumLoading}
+        error={albumError}
+        currentTrackId={currentTrack.id}
+        isPlaying={isPlaying}
+        onClose={() => {
+          setIsAlbumModalOpen(false);
+          setAlbumError(undefined);
+        }}
+        onPlayTrack={(track, album) => void handlePlayAlbumTrack(track, album)}
+        onPlayAlbum={(album) => void handlePlayAlbum(album)}
+        language={language}
+        theme={theme}
+      />
+
+      <ArtistPopularModal
+        artist={artistModal}
+        isOpen={isArtistModalOpen}
+        isLoading={isArtistLoading}
+        error={artistError}
+        currentTrackId={currentTrack.id}
+        isPlaying={isPlaying}
+        onClose={() => {
+          setIsArtistModalOpen(false);
+          setArtistError(undefined);
+        }}
+        onPlayTrack={(track, artist) => void handlePlayArtistTrack(track, artist)}
+        onPlayArtist={(artist) => void handlePlayArtist(artist)}
         language={language}
         theme={theme}
       />

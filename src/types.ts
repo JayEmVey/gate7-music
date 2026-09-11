@@ -16,7 +16,11 @@ export interface Track {
   spotifyId?: string;
   title: string;
   artist: string;
+  artistId?: string;
   album?: string;
+  albumId?: string;
+  albumType?: 'album' | 'single' | 'compilation' | 'appears_on' | string;
+  releaseDate?: string;
   duration: string;
   durationSec: number;
   coffeePairing?: string;
@@ -25,6 +29,30 @@ export interface Track {
   genre?: string;
   audioFeatures?: TrackAudioFeatures;
   audioFeaturesSource?: 'worker' | 'estimated';
+}
+
+export type ShuffleMode = 'off' | 'shuffle' | 'smart';
+export type RepeatMode = 'off' | 'context' | 'track';
+
+export interface AlbumDetail {
+  id: string;
+  name: string;
+  albumType: string;
+  releaseDate: string;
+  totalTracks: number;
+  coverUrl: string;
+  artists: { id: string; name: string }[];
+  tracks: Track[];
+  copyrights?: string[];
+}
+
+export interface ArtistDetail {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  followers: number;
+  monthlyListenersEstimate?: number;
+  tracks: Track[];
 }
 
 export interface Playlist {

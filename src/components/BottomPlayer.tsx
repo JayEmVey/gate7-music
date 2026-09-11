@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Track, SpeakerZone, Language } from '../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { Track, Language, ShuffleMode, RepeatMode } from '../types';
 import { getTrackCover } from '../data';
 
 interface BottomPlayerProps {
@@ -12,20 +12,22 @@ interface BottomPlayerProps {
   onSeek: (sec: number) => void;
   isLiked: boolean;
   onToggleLike: () => void;
-  isShuffle: boolean;
+  shuffleMode: ShuffleMode;
   onToggleShuffle: () => void;
-  isRepeat: boolean;
+  repeatMode: RepeatMode;
   onToggleRepeat: () => void;
-  speakerZone: SpeakerZone;
-  onSelectSpeakerZone: (zone: SpeakerZone) => void;
   volume: number;
   onChangeVolume: (vol: number) => void;
-  onOpenTrackDetail: () => void;
+  onMuteToggle: () => void;
+  onOpenAlbum: () => void;
+  onOpenArtist: () => void;
   onOpenSpotify?: () => void;
+  onPlayQueueTrack?: (track: Track) => void;
   spotifyQueue: Track[];
   language: Language;
   theme?: 'dark' | 'light';
   isAudioFeaturesLoading?: boolean;
+  contextName?: string;
 }
 
 export const BottomPlayer: React.FC<BottomPlayerProps> = ({
@@ -38,24 +40,38 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
   onSeek,
   isLiked,
   onToggleLike,
-  isShuffle,
+  shuffleMode,
   onToggleShuffle,
-  isRepeat,
+  repeatMode,
   onToggleRepeat,
-  speakerZone,
-  onSelectSpeakerZone,
   volume,
   onChangeVolume,
-  onOpenTrackDetail,
+  onMuteToggle,
+  onOpenAlbum,
+  onOpenArtist,
   onOpenSpotify,
+  onPlayQueueTrack,
   spotifyQueue,
   language,
   theme = 'dark',
   isAudioFeaturesLoading = false,
+  contextName,
 }) => {
-  const [showSpeakerMenu, setShowSpeakerMenu] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  const volumeDragActive = useRef(false);
+  const queuePanelRef = useRef<HTMLDivElement>(null);
   const isLight = theme === 'light';
+
+  useEffect(() => {
+    if (!showQueue) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!queuePanelRef.current?.contains(event.target as Node)) {
+        setShowQueue(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [showQueue]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -63,7 +79,9 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const progressPercent = Math.min(100, (playbackSec / currentTrack.durationSec) * 100);
+  const progressPercent = currentTrack.durationSec > 0
+    ? Math.min(100, (playbackSec / currentTrack.durationSec) * 100)
+    : 0;
 
   const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -72,19 +90,60 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
     onSeek(Math.floor(ratio * currentTrack.durationSec));
   };
 
-  const handleVolumeClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+  const setVolumeFromClientX = (clientX: number, target: HTMLDivElement) => {
+    const rect = target.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     onChangeVolume(Math.round(ratio * 100));
   };
 
-  const speakerLabels: Record<SpeakerZone, string> = {
-    main: 'Gate 7 Main Loa',
-    floor2: 'Loa Không Gian Tầng 2',
-    bar: 'Quầy Bar Roastery Loa',
-    garden: 'Loa Sân Vườn Ngoài Trời',
+  const handleVolumePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    volumeDragActive.current = true;
+    setVolumeFromClientX(e.clientX, e.currentTarget);
   };
+
+  const handleVolumePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!volumeDragActive.current) return;
+    setVolumeFromClientX(e.clientX, e.currentTarget);
+  };
+
+  const handleVolumePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    volumeDragActive.current = false;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const shuffleActive = shuffleMode !== 'off';
+  const shuffleTitle = (() => {
+    if (shuffleMode === 'smart') {
+      return language === 'vi' ? 'Tắt Smart Shuffle' : 'Disable Smart Shuffle';
+    }
+    if (shuffleMode === 'shuffle') {
+      return language === 'vi' ? 'Tắt phát ngẫu nhiên' : 'Disable Shuffle';
+    }
+    const target = contextName || (language === 'vi' ? 'danh sách phát' : 'queue');
+    return language === 'vi'
+      ? `Bật phát ngẫu nhiên cho ${target}`
+      : `Enable Shuffle for ${target}`;
+  })();
+
+  const repeatTitle = (() => {
+    if (repeatMode === 'track') return language === 'vi' ? 'Lặp một bài' : 'Repeat one';
+    if (repeatMode === 'context') return language === 'vi' ? 'Lặp danh sách' : 'Repeat context';
+    return language === 'vi' ? 'Bật lặp lại' : 'Enable repeat';
+  })();
+
+  const volumeIconName = volume === 0
+    ? 'fa-volume-xmark'
+    : volume < 35
+      ? 'fa-volume-low'
+      : 'fa-volume-high';
+  const volumeIconColor = volume === 0
+    ? 'text-red-500'
+    : isLight
+      ? 'text-black'
+      : 'text-[#FEBC11]';
 
   return (
     <aside
@@ -94,7 +153,6 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
           : 'bg-[#151518] border-t-4 border-[#2A2A34] text-white shadow-[0_-8px_20px_rgba(0,0,0,0.8)]'
       }`}
     >
-      {/* Scrubber bar — full width at top on all screens */}
       <div
         onClick={handleSeekClick}
         className={`w-full h-1.5 cursor-pointer group ${
@@ -108,11 +166,8 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
         ></div>
       </div>
 
-      {/* Main player row */}
       <div className="px-3 md:px-8 h-16 md:h-20 flex items-center justify-between gap-2 md:gap-4">
-        {/* LEFT: Track info */}
         <div className="flex items-center gap-2 md:gap-3.5 min-w-0 flex-1 md:flex-none md:w-1/3">
-          {/* Thumbnail */}
           <div
             id="bar-track-cover"
             onClick={onTogglePlay}
@@ -135,7 +190,6 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
               </div>
             )}
 
-            {/* Playing Animation: Animated Equalizer overlay on thumbnail */}
             {isPlaying ? (
               <div className="absolute bottom-1 right-1 bg-black/85 backdrop-blur-xs px-1 py-0.5 rounded-xs border border-[#FEBC11]/60 flex items-end gap-0.5 h-3.5 pointer-events-none">
                 <span className="w-0.5 bg-[#FEBC11] rounded-t animate-equalizer-1 h-full"></span>
@@ -145,7 +199,6 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
               </div>
             ) : null}
 
-            {/* Hover Play/Pause Overlay Icon */}
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play pl-0.5'} text-white text-xs`}></i>
             </div>
@@ -154,14 +207,17 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
               <button
-                onClick={onOpenTrackDetail}
+                type="button"
+                onClick={onOpenAlbum}
                 className={`text-xs md:text-sm font-black truncate text-left cursor-pointer hover:underline max-w-[110px] sm:max-w-none ${
                   isLight ? 'text-black hover:text-amber-800' : 'text-white hover:text-[#FEBC11]'
                 }`}
+                title={language === 'vi' ? 'Xem album / single' : 'View album / single'}
               >
                 {currentTrack.title}
               </button>
               <button
+                type="button"
                 onClick={onOpenSpotify}
                 className="text-[#1DB954] hover:text-[#1ed760] text-xs cursor-pointer p-0.5 transition-colors shrink-0"
                 title={language === 'vi' ? 'Mở bài hát trên Spotify' : 'Open song in Spotify'}
@@ -170,19 +226,22 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
               </button>
             </div>
             {currentTrack.artist && currentTrack.artist.toLowerCase() !== currentTrack.title.toLowerCase() && (
-              <p
-                onClick={onOpenTrackDetail}
-                className={`text-[10px] md:text-xs font-semibold truncate cursor-pointer ${
+              <button
+                type="button"
+                onClick={onOpenArtist}
+                className={`block text-[10px] md:text-xs font-semibold truncate cursor-pointer text-left hover:underline ${
                   isLight ? 'text-gray-700 hover:text-black' : 'text-gray-400 hover:text-gray-300'
                 }`}
+                title={language === 'vi' ? 'Xem nghệ sĩ' : 'View artist'}
               >
                 {currentTrack.artist}
-              </p>
+              </button>
             )}
           </div>
 
           <button
             id="bar-like-btn"
+            type="button"
             onClick={onToggleLike}
             className="text-red-500 hover:scale-110 active:scale-95 transition-transform p-1 cursor-pointer shrink-0"
             title={isLiked ? 'Đã lưu vào danh sách yêu thích' : 'Lưu vào danh sách yêu thích'}
@@ -197,80 +256,95 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
           </button>
         </div>
 
-        {/* CENTER: Player controls (always visible) */}
         <div className="flex items-center gap-3 md:gap-4 shrink-0">
           <button
+            type="button"
             onClick={onToggleShuffle}
-            className={`hidden sm:block text-sm font-black transition-colors cursor-pointer ${
-              isShuffle
+            className={`hidden sm:inline-flex items-center justify-center relative text-sm font-black transition-colors cursor-pointer ${
+              shuffleActive
                 ? 'text-[#FEBC11]'
                 : isLight
                 ? 'text-gray-600 hover:text-black'
                 : 'text-gray-400 hover:text-[#FEBC11]'
             }`}
-            title="Trộn bài ngẫu nhiên"
+            title={shuffleTitle}
+            aria-pressed={shuffleActive}
           >
             <i className="fa-solid fa-shuffle"></i>
+            {shuffleMode === 'smart' && (
+              <span className="absolute -top-1 -right-1.5 w-1.5 h-1.5 rounded-full bg-[#FEBC11]" aria-hidden />
+            )}
           </button>
 
           <button
+            type="button"
             onClick={onPrevTrack}
             className={`text-base transition-colors cursor-pointer ${
               isLight ? 'text-black hover:text-amber-800' : 'text-gray-300 hover:text-[#FEBC11]'
             }`}
-            title="Bài trước"
+            title={language === 'vi' ? 'Bài trước' : 'Previous'}
           >
             <i className="fa-solid fa-backward-step"></i>
           </button>
 
           <button
             id="bar-play-btn"
+            type="button"
             onClick={onTogglePlay}
             className="w-10 h-10 md:w-11 md:h-11 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] border-2 border-black shadow-brutal hover:scale-105 active:scale-95 flex items-center justify-center text-sm transition-all cursor-pointer"
-            title={isPlaying ? 'Tạm dừng' : 'Phát'}
+            title={isPlaying ? (language === 'vi' ? 'Tạm dừng' : 'Pause') : (language === 'vi' ? 'Phát' : 'Play')}
           >
             <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play ml-0.5'}`} id="bar-play-icon"></i>
           </button>
 
           <button
+            type="button"
             onClick={onNextTrack}
             className={`text-base transition-colors cursor-pointer ${
               isLight ? 'text-black hover:text-amber-800' : 'text-gray-300 hover:text-[#FEBC11]'
             }`}
-            title="Bài kế tiếp"
+            title={language === 'vi' ? 'Bài kế tiếp' : 'Next'}
           >
             <i className="fa-solid fa-forward-step"></i>
           </button>
 
           <button
+            type="button"
             onClick={onToggleRepeat}
-            className={`hidden sm:block text-sm transition-colors cursor-pointer ${
-              isRepeat
+            className={`hidden sm:inline-flex items-center justify-center relative text-sm transition-colors cursor-pointer ${
+              repeatMode !== 'off'
                 ? 'text-[#FEBC11]'
                 : isLight
                 ? 'text-gray-600 hover:text-black'
                 : 'text-gray-400 hover:text-[#FEBC11]'
             }`}
-            title="Lặp lại danh sách"
+            title={repeatTitle}
+            aria-pressed={repeatMode !== 'off'}
           >
             <i className="fa-solid fa-repeat"></i>
+            {repeatMode === 'track' && (
+              <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[8px] font-black leading-none">1</span>
+            )}
           </button>
         </div>
 
-        {/* RIGHT: Volume & extras — desktop only details */}
         <div className="hidden md:flex items-center justify-end gap-2.5 flex-1 md:w-1/3 relative">
-          {/* Time display */}
           <span className={`text-[11px] font-mono font-bold whitespace-nowrap ${isLight ? 'text-black' : 'text-gray-300'}`}>
             {formatTime(playbackSec)} / {currentTrack.duration}
           </span>
 
-          <div className="relative">
+          <div className="relative" ref={queuePanelRef}>
             <button
+              type="button"
               onClick={() => setShowQueue((visible) => !visible)}
               className={`flex items-center gap-2 text-xs font-black px-2.5 py-1 border-2 border-black shadow-brutal cursor-pointer transition-colors ${
-                isLight ? 'bg-white text-black hover:bg-gray-100' : 'bg-[#202026] hover:bg-[#282830] text-gray-200'
+                showQueue
+                  ? 'bg-[#FEBC11] text-[#0D0D0E]'
+                  : isLight
+                    ? 'bg-white text-black hover:bg-gray-100'
+                    : 'bg-[#202026] hover:bg-[#282830] text-gray-200'
               }`}
-              title={language === 'vi' ? 'Hàng đợi Spotify' : 'Spotify queue'}
+              title={language === 'vi' ? 'Hàng đợi' : 'Queue'}
             >
               <i className="fa-solid fa-list"></i>
               <span className="hidden xl:inline text-[11px]">QUEUE {spotifyQueue.length}</span>
@@ -278,23 +352,122 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
 
             {showQueue && (
               <div
-                className={`absolute bottom-full right-0 mb-3 w-72 border-2 border-black shadow-brutal-xl p-2 z-50 ${
+                className={`absolute bottom-full right-0 mb-3 w-[min(24rem,calc(100vw-1.5rem))] border-2 border-black shadow-brutal-xl p-3 z-50 ${
                   isLight ? 'bg-white text-black' : 'bg-[#1A1A1E] text-white border-[#FEBC11]'
                 }`}
               >
-                <div className={`text-[10px] font-black uppercase px-2 py-1 border-b ${isLight ? 'border-black/20' : 'text-[#FEBC11] border-[#2E2E38]'}`}>
-                  {language === 'vi' ? 'HÀNG ĐỢI SPOTIFY' : 'SPOTIFY QUEUE'}
+                <div className={`flex items-center justify-between gap-2 px-1 pb-2 mb-3 border-b ${
+                  isLight ? 'border-black/20' : 'border-[#2E2E38]'
+                }`}>
+                  <span className={`text-[10px] font-black uppercase truncate ${
+                    isLight ? 'text-black' : 'text-white'
+                  }`}>
+                    {language === 'vi' ? 'Danh sách chờ' : 'Queue'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowQueue(false)}
+                    className={`w-6 h-6 border flex items-center justify-center text-[10px] font-black cursor-pointer ${
+                      isLight
+                        ? 'border-gray-300 bg-white hover:bg-gray-100'
+                        : 'border-[#3E3E4C] bg-[#141416] hover:bg-[#FEBC11] hover:text-black'
+                    }`}
+                    aria-label={language === 'vi' ? 'Đóng hàng đợi' : 'Close queue'}
+                  >
+                    ✕
+                  </button>
                 </div>
-                {spotifyQueue.length > 0 ? (
-                  <div className="max-h-64 overflow-y-auto">
-                    {spotifyQueue.slice(0, 12).map((track, index) => (
-                      <div key={`${track.spotifyId || track.id}-${index}`} className="flex items-center gap-2 px-2 py-1.5 border-b border-black/10 last:border-0">
-                        <span className="text-[10px] font-black text-[#FEBC11] w-4">{index + 1}</span>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold truncate">{track.title}</div>
-                          <div className={`text-[10px] truncate ${isLight ? 'text-gray-600' : 'text-gray-400'}`}>{track.artist}</div>
-                        </div>
+
+                <div className="mb-4">
+                  <div className={`text-[10px] font-black uppercase px-1 mb-2 ${
+                    isLight ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
+                    {language === 'vi' ? 'Đang phát' : 'Now playing'}
+                  </div>
+                  <div className={`w-full p-3 border-2 flex items-center justify-between gap-3 shadow-brutal ${
+                    isLight
+                      ? 'bg-[#FFFDF0] border-[#FEBC11]'
+                      : 'bg-[#26241B] border-[#FEBC11]'
+                  }`}>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <img
+                        src={getTrackCover(currentTrack)}
+                        alt=""
+                        className="w-10 h-10 object-cover border border-black shadow-sm shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <strong className="block text-xs font-black truncate text-[#FEBC11]">
+                          {currentTrack.title}
+                        </strong>
+                        <span className={`block text-[11px] truncate ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
+                          {currentTrack.artist}
+                        </span>
                       </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onTogglePlay}
+                      className="w-7 h-7 flex items-center justify-center border text-xs shadow-brutal bg-[#FEBC11] text-[#0D0D0E] border-black cursor-pointer"
+                      title={isPlaying
+                        ? (language === 'vi' ? 'Tạm dừng' : 'Pause')
+                        : (language === 'vi' ? 'Phát' : 'Play')}
+                    >
+                      <i className={`fa-solid ${isPlaying ? 'fa-pause' : 'fa-play ml-0.5'}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className={`text-[10px] font-black uppercase px-1 pb-2 mb-2 border-b truncate ${
+                  isLight ? 'border-black/20 text-black' : 'text-[#FEBC11] border-[#2E2E38]'
+                }`}>
+                  {language === 'vi'
+                    ? `Nội dung tiếp theo từ ${contextName || 'hàng đợi'}`
+                    : `Next from: ${contextName || 'queue'}`}
+                </div>
+
+                <div className={`flex items-center justify-between text-[11px] font-black uppercase px-3 pb-1 border-b ${
+                  isLight ? 'text-gray-500 border-gray-200' : 'text-gray-400 border-[#2A2A34]'
+                }`}>
+                  <span>{language === 'vi' ? 'BÀI HÁT' : 'TRACK'}</span>
+                  <span>{language === 'vi' ? 'PHÁT' : 'PLAY'}</span>
+                </div>
+
+                {spotifyQueue.length > 0 ? (
+                  <div className="max-h-64 overflow-y-auto space-y-2 mt-2 pr-0.5">
+                    {spotifyQueue.slice(0, 12).map((track, index) => (
+                      <button
+                        type="button"
+                        key={`${track.spotifyId || track.id}-${index}`}
+                        onClick={() => onPlayQueueTrack?.(track)}
+                        className={`w-full p-3 border-2 flex items-center justify-between gap-3 shadow-brutal transition-all text-left cursor-pointer group ${
+                          isLight
+                            ? 'bg-[#F9FAFB] border-gray-300 hover:border-[#FEBC11]/80 hover:bg-gray-100'
+                            : 'bg-[#1E1E24] border-[#2E2E38] hover:border-[#FEBC11]/80 hover:bg-[#24242C]'
+                        }`}
+                      >
+                        <span className="flex items-center gap-3 min-w-0 flex-1">
+                          <img
+                            src={getTrackCover(track)}
+                            alt=""
+                            className="w-10 h-10 object-cover border border-black shadow-sm shrink-0"
+                          />
+                          <span className="min-w-0">
+                            <strong className={`block text-xs font-black truncate group-hover:text-[#FEBC11] ${
+                              isLight ? 'text-black' : 'text-white'
+                            }`}>{track.title}</strong>
+                            <span className={`block text-[11px] truncate ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {track.artist}
+                            </span>
+                          </span>
+                        </span>
+                        <span className={`w-7 h-7 flex items-center justify-center border text-xs shadow-brutal shrink-0 ${
+                          isLight
+                            ? 'bg-white text-gray-600 border-gray-300 group-hover:bg-[#FEBC11] group-hover:text-black'
+                            : 'bg-[#141416] text-gray-300 border-[#363644] group-hover:bg-[#FEBC11] group-hover:text-black'
+                        }`}>
+                          <i className="fa-solid fa-play ml-0.5" />
+                        </span>
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -307,6 +480,7 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={onOpenSpotify}
             className="inline-flex items-center gap-1.5 text-xs font-black bg-[#FEBC11] text-[#0D0D0E] border-2 border-black px-2.5 py-1 shadow-brutal hover:bg-yellow-400 transition-colors cursor-pointer"
             title={language === 'vi' ? 'Mở bài đang phát trên Spotify' : 'Open currently playing track on Spotify'}
@@ -315,83 +489,53 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
             <span>SPOTIFY</span>
           </button>
 
-          {/* Speaker Zone Selector */}
-          <div className="relative">
+          <div className="flex items-center gap-2 w-28">
             <button
-              onClick={() => setShowSpeakerMenu(!showSpeakerMenu)}
-              className={`flex items-center gap-2 text-xs font-black px-2.5 py-1 border-2 border-black shadow-brutal cursor-pointer transition-colors ${
-                isLight ? 'bg-white text-black hover:bg-gray-100' : 'bg-[#202026] hover:bg-[#282830] text-gray-200'
-              }`}
-              title="Chọn khu vực phát loa tại quán"
+              type="button"
+              onClick={onMuteToggle}
+              className={`text-xs cursor-pointer hover:brightness-125 ${volumeIconColor}`}
+              title={volume === 0
+                ? (language === 'vi' ? 'Bật âm thanh' : 'Unmute')
+                : (language === 'vi' ? 'Tắt tiếng' : 'Mute')}
+              aria-label={volume === 0 ? 'Unmute' : 'Mute'}
             >
-              <i className="fa-solid fa-computer text-[#1DB954]"></i>
-              <span className="hidden xl:inline text-[11px]">
-                {speakerLabels[speakerZone]}
-              </span>
+              <i className={`fa-solid ${volumeIconName}`}></i>
             </button>
-
-            {showSpeakerMenu && (
-              <div
-                className={`absolute bottom-full right-0 mb-3 w-56 border-2 border-black shadow-brutal-xl p-2 z-50 space-y-1 ${
-                  isLight ? 'bg-white text-black' : 'bg-[#1A1A1E] text-white border-[#FEBC11]'
-                }`}
-              >
-                <div
-                  className={`text-[10px] font-black uppercase px-2 py-1 border-b ${
-                    isLight ? 'text-black border-black/20' : 'text-[#FEBC11] border-[#2E2E38]'
-                  }`}
-                >
-                  {language === 'vi' ? 'HỆ THỐNG LOA TOÀN QUÁN' : 'ROASTERY SOUND ZONES'}
-                </div>
-                {(['main', 'floor2', 'bar', 'garden'] as SpeakerZone[]).map((zone) => (
-                  <button
-                    key={zone}
-                    onClick={() => {
-                      onSelectSpeakerZone(zone);
-                      setShowSpeakerMenu(false);
-                    }}
-                    className={`w-full text-left text-xs px-2.5 py-1.5 font-bold flex items-center justify-between transition-colors ${
-                      speakerZone === zone
-                        ? 'bg-[#FEBC11] text-[#0D0D0E]'
-                        : isLight
-                        ? 'text-black hover:bg-gray-100'
-                        : 'text-gray-200 hover:bg-[#25252C]'
-                    }`}
-                  >
-                    <span>{speakerLabels[zone]}</span>
-                    {speakerZone === zone && <span>✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Volume Bar */}
-          <div className="flex items-center gap-2 w-24">
-            <i
-              onClick={() => onChangeVolume(volume > 0 ? 0 : 80)}
-              className={`fa-solid ${
-                volume === 0 ? 'fa-volume-xmark text-red-500' : isLight ? 'fa-volume-high text-black' : 'fa-volume-high text-gray-300'
-              } text-xs cursor-pointer hover:text-[#FEBC11]`}
-              title={volume === 0 ? 'Bật âm thanh' : 'Tắt tiếng'}
-            ></i>
             <div
-              onClick={handleVolumeClick}
-              className={`w-full h-2 overflow-hidden cursor-pointer group border ${
+              role="slider"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={volume}
+              aria-label={language === 'vi' ? 'Âm lượng' : 'Volume'}
+              tabIndex={0}
+              onPointerDown={handleVolumePointerDown}
+              onPointerMove={handleVolumePointerMove}
+              onPointerUp={handleVolumePointerUp}
+              onPointerCancel={handleVolumePointerUp}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  onChangeVolume(Math.min(100, volume + 5));
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  onChangeVolume(Math.max(0, volume - 5));
+                }
+              }}
+              className={`w-full h-2 overflow-hidden cursor-pointer group border touch-none ${
                 isLight ? 'bg-black/10 border-black/30' : 'bg-[#282830] border-[#3C3C48]'
               }`}
-              title={`Âm lượng: ${volume}%`}
+              title={`${language === 'vi' ? 'Âm lượng' : 'Volume'}: ${volume}%`}
             >
               <div
-                className="bg-[#FEBC11] h-full transition-all group-hover:brightness-125"
+                className="bg-[#FEBC11] h-full transition-[width] duration-75 group-hover:brightness-125 pointer-events-none"
                 style={{ width: `${volume}%` }}
               ></div>
             </div>
           </div>
         </div>
 
-        {/* Mobile-only: Spotify button */}
         <button
+          type="button"
           onClick={onOpenSpotify}
           className="md:hidden flex items-center justify-center w-8 h-8 text-[#1DB954] border-2 border-black bg-[#0D0D0E] shadow-brutal shrink-0 cursor-pointer"
           title={language === 'vi' ? 'Mở Spotify' : 'Open Spotify'}
@@ -402,4 +546,3 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
     </aside>
   );
 };
-

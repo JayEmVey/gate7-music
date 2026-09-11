@@ -170,7 +170,11 @@ export interface SpotifyPlaylistTrack {
   id: string;
   title: string;
   artist: string;
+  artistId?: string;
   album: string;
+  albumId?: string;
+  albumType?: string;
+  releaseDate?: string;
   durationSec: number;
   coverUrl: string;
   spotifyUri: string;
@@ -190,12 +194,14 @@ export interface SpotifyTrackAudioFeatures {
 }
 
 export interface SpotifyPlaybackState {
-  device?: { id?: string; name?: string; type?: string; is_active?: boolean };
+  device?: { id?: string; name?: string; type?: string; is_active?: boolean; volume_percent?: number };
   is_playing: boolean;
   progress_ms: number;
   item?: any;
   context?: { uri?: string; type?: string };
   shuffle_state?: boolean;
+  /** Undocumented field returned by Get Playback State when Smart Shuffle is active. */
+  smart_shuffle?: boolean;
   repeat_state?: 'track' | 'context' | 'off';
 }
 
@@ -253,15 +259,168 @@ export async function fetchSpotifySearchTracks(query: string): Promise<SpotifyPl
     throw new SpotifyApiError(response.status, `Could not search Spotify (${response.status}${detail ? `: ${detail}` : ''})`);
   }
   const data = await response.json();
-  return (data.tracks?.items || []).filter((item: any) => item?.id).map((item: any) => ({
+  return (data.tracks?.items || []).filter((item: any) => item?.id).map((item: any) => mapSpotifyTrackItem(item));
+}
+
+function mapSpotifyTrackItem(item: any, fallbackAlbum?: { name?: string; id?: string; images?: { url: string }[]; album_type?: string; release_date?: string }): SpotifyPlaylistTrack {
+  const album = item.album || fallbackAlbum || {};
+  return {
     id: item.id,
     title: item.name,
     artist: item.artists?.map((artist: { name: string }) => artist.name).join(', ') || 'Unknown Artist',
-    album: item.album?.name || '',
+    artistId: item.artists?.[0]?.id,
+    album: album.name || '',
+    albumId: album.id,
+    albumType: album.album_type,
+    releaseDate: album.release_date,
     durationSec: Math.floor((item.duration_ms || 0) / 1000),
-    coverUrl: item.album?.images?.[0]?.url || '',
+    coverUrl: album.images?.[0]?.url || item.album?.images?.[0]?.url || '',
     spotifyUri: item.uri || `spotify:track:${item.id}`,
-  }));
+  };
+}
+
+export async function fetchSpotifyPlaylistMeta(playlistId: string): Promise<{ id: string; name: string } | null> {
+  if (!playlistId) return null;
+  const response = await spotifyFetch(`/playlists/${encodeURIComponent(playlistId)}`);
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (!data?.id) return null;
+  return { id: data.id, name: data.name || 'Playlist' };
+}
+
+export async function fetchSpotifyAlbum(albumId: string): Promise<{
+  id: string;
+  name: string;
+  albumType: string;
+  releaseDate: string;
+  totalTracks: number;
+  coverUrl: string;
+  artists: { id: string; name: string }[];
+  copyrights: string[];
+  tracks: SpotifyPlaylistTrack[];
+} | null> {
+  if (!albumId) return null;
+  const response = await spotifyFetch(`/albums/${encodeURIComponent(albumId)}?market=US`);
+  if (!response.ok) {
+    throw new SpotifyApiError(response.status, `Could not load album (${response.status})`);
+  }
+  const data = await response.json();
+  const albumMeta = {
+    name: data.name,
+    id: data.id,
+    images: data.images,
+    album_type: data.album_type,
+    release_date: data.release_date,
+  };
+  return {
+    id: data.id,
+    name: data.name || 'Album',
+    albumType: data.album_type || 'album',
+    releaseDate: data.release_date || '',
+    totalTracks: Number(data.total_tracks || data.tracks?.items?.length || 0),
+    coverUrl: data.images?.[0]?.url || '',
+    artists: (data.artists || []).map((artist: { id: string; name: string }) => ({
+      id: artist.id,
+      name: artist.name,
+    })),
+    copyrights: (data.copyrights || []).map((entry: { text?: string; type?: string }) => {
+      const mark = entry.type === 'P' ? '℗' : '©';
+      return `${mark} ${entry.text || ''}`.trim();
+    }),
+    tracks: (data.tracks?.items || [])
+      .filter((item: any) => item?.id)
+      .map((item: any) => mapSpotifyTrackItem(item, albumMeta)),
+  };
+}
+
+export async function fetchSpotifyArtist(artistId: string): Promise<{
+  id: string;
+  name: string;
+  imageUrl?: string;
+  followers: number;
+} | null> {
+  if (!artistId) return null;
+  const response = await spotifyFetch(`/artists/${encodeURIComponent(artistId)}`);
+  if (!response.ok) {
+    throw new SpotifyApiError(response.status, `Could not load artist (${response.status})`);
+  }
+  const data = await response.json();
+  return {
+    id: data.id,
+    name: data.name || 'Artist',
+    imageUrl: data.images?.[0]?.url,
+    followers: Number(data.followers?.total ?? 0),
+  };
+}
+
+async function fetchTracksFromArtistAlbums(artistId: string, limit = 10): Promise<SpotifyPlaylistTrack[]> {
+  const albumsResponse = await spotifyFetch(
+    `/artists/${encodeURIComponent(artistId)}/albums?include_groups=album,single&market=US&limit=5`,
+  );
+  if (!albumsResponse.ok) return [];
+
+  const albumsData = await albumsResponse.json();
+  const albumIds = (albumsData.items || [])
+    .map((album: { id?: string }) => album?.id)
+    .filter((id: string | undefined): id is string => Boolean(id));
+
+  const tracks: SpotifyPlaylistTrack[] = [];
+  const seen = new Set<string>();
+  for (const albumId of albumIds) {
+    if (tracks.length >= limit) break;
+    try {
+      const album = await fetchSpotifyAlbum(albumId);
+      for (const track of album?.tracks || []) {
+        if (seen.has(track.id)) continue;
+        if (track.artistId && track.artistId !== artistId) continue;
+        seen.add(track.id);
+        tracks.push(track);
+        if (tracks.length >= limit) break;
+      }
+    } catch {
+      // Skip albums that fail individually.
+    }
+  }
+  return tracks;
+}
+
+/**
+ * Approximate an artist's "popular" tracks.
+ * Spotify removed GET /artists/{id}/top-tracks for Development Mode apps (Feb 2026),
+ * so we search the catalog and fall back to recent album tracks.
+ */
+export async function fetchSpotifyArtistTopTracks(
+  artistId: string,
+  artistName?: string,
+): Promise<SpotifyPlaylistTrack[]> {
+  if (!artistId) return [];
+
+  let name = artistName?.trim();
+  if (!name) {
+    const artist = await fetchSpotifyArtist(artistId);
+    name = artist?.name;
+  }
+  if (!name) return fetchTracksFromArtistAlbums(artistId);
+
+  const safeName = name.replace(/"/g, '');
+  const params = new URLSearchParams({
+    q: `artist:"${safeName}"`,
+    type: 'track',
+    limit: '10',
+    market: 'US',
+  });
+  const response = await spotifyFetch(`/search?${params.toString()}`);
+  if (!response.ok) {
+    // Search can fail for some accounts; album discography still works.
+    return fetchTracksFromArtistAlbums(artistId);
+  }
+  const data = await response.json();
+  const fromSearch = (data.tracks?.items || [])
+    .filter((item: any) => item?.id && item.artists?.some((artist: { id?: string }) => artist.id === artistId))
+    .map((item: any) => mapSpotifyTrackItem(item));
+
+  if (fromSearch.length > 0) return fromSearch;
+  return fetchTracksFromArtistAlbums(artistId);
 }
 
 /**
@@ -637,15 +796,7 @@ export async function fetchSpotifyPlaylistTracks(playlistId: string, playlistNam
     for (const entry of data.items || []) {
       const item = entry.track || entry.item;
       if (!item?.id) continue;
-      tracks.push({
-        id: item.id,
-        title: item.name,
-        artist: item.artists?.map((artist: { name: string }) => artist.name).join(', ') || 'Unknown Artist',
-        album: item.album?.name || '',
-        durationSec: Math.floor((item.duration_ms || 0) / 1000),
-        coverUrl: item.album?.images?.[0]?.url || '',
-        spotifyUri: item.uri || `spotify:track:${item.id}`,
-      });
+      tracks.push(mapSpotifyTrackItem(item));
     }
     total = Number(data.total || tracks.length);
     offset += data.items?.length || 0;
