@@ -52,6 +52,7 @@ export const SpotifyChooserModal: React.FC<SpotifyChooserModalProps> = ({
   };
 
   const isPlaylist = target.type === 'playlist';
+  const isUser = target.type === 'user';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
@@ -75,7 +76,11 @@ export const SpotifyChooserModal: React.FC<SpotifyChooserModalProps> = ({
                 {language === 'vi' ? 'Mở trên Spotify' : 'Open in Spotify'}
               </h3>
               <p className="text-[11px] font-bold text-gray-500">
-                {isPlaylist
+                {isUser
+                  ? language === 'vi'
+                    ? 'Hồ sơ Spotify của bạn'
+                    : 'Your Spotify profile'
+                  : isPlaylist
                   ? language === 'vi'
                     ? 'Danh sách phát Gate 7 Roastery'
                     : 'Gate 7 Roastery Curated Playlist'
@@ -114,13 +119,23 @@ export const SpotifyChooserModal: React.FC<SpotifyChooserModalProps> = ({
             />
           ) : (
             <div className="w-14 h-14 bg-[#FEBC11] border-2 border-black flex items-center justify-center shrink-0">
-              {isPlaylist ? <Disc className="w-7 h-7 text-black" /> : <Music2 className="w-7 h-7 text-black" />}
+              {isUser ? (
+                <i className="fa-solid fa-user text-xl text-black"></i>
+              ) : isPlaylist ? (
+                <Disc className="w-7 h-7 text-black" />
+              ) : (
+                <Music2 className="w-7 h-7 text-black" />
+              )}
             </div>
           )}
 
           <div className="flex-1 min-w-0">
             <span className="inline-block px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider bg-[#1DB954] text-black border border-black mb-1">
-              {isPlaylist
+              {isUser
+                ? language === 'vi'
+                  ? 'Hồ sơ'
+                  : 'Profile'
+                : isPlaylist
                 ? language === 'vi'
                   ? 'Playlist'
                   : 'Playlist'
@@ -130,7 +145,11 @@ export const SpotifyChooserModal: React.FC<SpotifyChooserModalProps> = ({
             </span>
             <h4 className="text-sm font-black truncate leading-tight">{target.name}</h4>
             <p className="text-xs font-bold text-gray-500 truncate mt-0.5">
-              {target.artist || target.slotName || 'Gate 7 Coffee Roastery'}
+              {isUser
+                ? language === 'vi'
+                  ? 'Tài khoản Spotify đã đăng nhập'
+                  : 'Signed-in Spotify account'
+                : target.artist || target.slotName || 'Gate 7 Coffee Roastery'}
             </p>
           </div>
         </div>
@@ -138,7 +157,11 @@ export const SpotifyChooserModal: React.FC<SpotifyChooserModalProps> = ({
         {/* Instructions / Prompt */}
         <p className="text-xs font-bold text-gray-600 dark:text-gray-300 mb-4">
           {language === 'vi'
-            ? 'Bạn muốn mở giai điệu này qua ứng dụng máy tính hay trên trình duyệt web?'
+            ? isUser
+              ? 'Bạn muốn mở hồ sơ Spotify qua ứng dụng máy tính hay trên trình duyệt web?'
+              : 'Bạn muốn mở giai điệu này qua ứng dụng máy tính hay trên trình duyệt web?'
+            : isUser
+            ? 'How would you like to open your Spotify profile?'
             : 'How would you like to open this on Spotify?'}
         </p>
 

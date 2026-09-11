@@ -158,7 +158,7 @@ export interface SpotifyAuthStatus {
 }
 
 export interface SpotifyItemTarget {
-  type: 'playlist' | 'track';
+  type: 'playlist' | 'track' | 'user';
   id: string;
   name: string;
   artist?: string;
@@ -208,6 +208,24 @@ export async function fetchSpotifyPlaybackState(): Promise<SpotifyPlaybackState 
   const response = await spotifyFetch('/me/player');
   if (response.status === 204 || !response.ok) return null;
   return response.json();
+}
+
+export async function fetchSpotifyCurrentUser(): Promise<{
+  id: string;
+  displayName: string;
+  profileUrl: string;
+  imageUrl?: string;
+} | null> {
+  const response = await spotifyFetch('/me');
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (!data?.id) return null;
+  return {
+    id: data.id,
+    displayName: data.display_name || data.id,
+    profileUrl: data.external_urls?.spotify || `https://open.spotify.com/user/${data.id}`,
+    imageUrl: data.images?.[0]?.url,
+  };
 }
 
 export async function fetchSpotifyQueue(): Promise<SpotifyQueueState | null> {
@@ -746,16 +764,16 @@ export async function fetchSpotifyTrackLoudness(trackId: string): Promise<number
 /**
  * Builds Spotify web URL
  */
-export function buildSpotifyUrl(type: 'playlist' | 'track', id: string): string {
-  const cleanId = id.replace(/^(spotify:(playlist|track):)/, '');
+export function buildSpotifyUrl(type: 'playlist' | 'track' | 'user', id: string): string {
+  const cleanId = id.replace(/^(spotify:(playlist|track|user):)/, '');
   return `https://open.spotify.com/${type}/${cleanId}`;
 }
 
 /**
  * Builds Spotify deep link URI for native desktop/mobile app
  */
-export function buildSpotifyAppUri(type: 'playlist' | 'track', id: string): string {
-  const cleanId = id.replace(/^(spotify:(playlist|track):)/, '');
+export function buildSpotifyAppUri(type: 'playlist' | 'track' | 'user', id: string): string {
+  const cleanId = id.replace(/^(spotify:(playlist|track|user):)/, '');
   return `spotify:${type}:${cleanId}`;
 }
 

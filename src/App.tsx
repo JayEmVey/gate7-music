@@ -22,6 +22,7 @@ import {
   SONIC_CATEGORY_QUERIES,
   fetchSpotifyPlaybackState,
   fetchSpotifyQueue,
+  fetchSpotifyCurrentUser,
   transferSpotifyPlayback,
   startSpotifyPlayback,
   pauseSpotifyPlayback,
@@ -171,6 +172,12 @@ export default function App() {
   const [spotifyDesktopStatus, setSpotifyDesktopStatus] = useState<string>('');
   const [spotifySource, setSpotifySource] = useState<'desktop' | 'web'>('web');
   const [spotifyQueue, setSpotifyQueue] = useState<Track[]>([]);
+  const [spotifyUserProfile, setSpotifyUserProfile] = useState<{
+    id: string;
+    displayName: string;
+    profileUrl: string;
+    imageUrl?: string;
+  } | null>(null);
   const [isAudioFeaturesLoading, setIsAudioFeaturesLoading] = useState(false);
   const spotifyPlayerRef = useRef<SpotifyWebPlaybackPlayer | null>(null);
   const spotifyDeviceIdRef = useRef<string | null>(null);
@@ -324,6 +331,18 @@ export default function App() {
     window.addEventListener('message', onSpotifyAuthComplete);
     return () => window.removeEventListener('message', onSpotifyAuthComplete);
   }, []);
+
+  // Load the signed-in Spotify profile for the footer social link.
+  useEffect(() => {
+    if (spotifyAuthStatus !== 'connected') return;
+    let cancelled = false;
+    void fetchSpotifyCurrentUser().then((profile) => {
+      if (!cancelled && profile) setSpotifyUserProfile(profile);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [spotifyAuthStatus]);
 
   // Connect the Web Playback SDK and mirror its state into the page.
   useEffect(() => {
@@ -1110,12 +1129,12 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-3">
             <span className={isLight ? 'text-black' : 'text-white'}>© 2026 Gate 7 Coffee Roastery.</span>
             <span>•</span>
-            <span>music.gate7.vn • {language === 'vi' ? 'Không gian kết nối qua từng tách cà phê' : 'Connecting through every cup of coffee'}</span>
+            <span>music.gate7.vn • {language === 'vi' ? 'music as you are' : 'music as you are'}</span>
           </div>
 
           <div className={`flex items-center gap-4 text-base ${isLight ? 'text-black' : 'text-gray-300'}`}>
             <a
-              href="https://facebook.com"
+              href="https://facebook.com/gate7.coffee"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-[#FEBC11] transition-colors"
@@ -1124,7 +1143,7 @@ export default function App() {
               <i className="fa-brands fa-facebook"></i>
             </a>
             <a
-              href="https://instagram.com"
+              href="https://www.instagram.com/gate7.coffee"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-[#FEBC11] transition-colors"
@@ -1133,14 +1152,25 @@ export default function App() {
               <i className="fa-brands fa-instagram"></i>
             </a>
             <button
-              onClick={() => handleOpenSpotify()}
+              onClick={() => {
+                if (spotifyUserProfile) {
+                  handleOpenSpotify({
+                    type: 'user',
+                    id: spotifyUserProfile.id,
+                    name: spotifyUserProfile.displayName,
+                    coverUrl: spotifyUserProfile.imageUrl,
+                  });
+                  return;
+                }
+                window.open('https://open.spotify.com/', '_blank', 'noopener,noreferrer');
+              }}
               className="hover:text-[#1DB954] transition-colors cursor-pointer"
-              title="Spotify"
+              title={spotifyUserProfile ? spotifyUserProfile.displayName : 'Spotify'}
             >
               <i className="fa-brands fa-spotify"></i>
             </button>
             <a
-              href="https://tiktok.com"
+              href="https://www.tiktok.com/@gate.7.coffee"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-[#FEBC11] transition-colors"
