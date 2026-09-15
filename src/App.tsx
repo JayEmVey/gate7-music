@@ -1230,7 +1230,7 @@ export default function App() {
 
   return (
     <div
-      className={`font-sans antialiased min-h-screen flex flex-col selection:bg-[#FEBC11] selection:text-black transition-colors duration-200 overflow-x-hidden touch-manipulation ${
+      className={`font-sans antialiased min-h-screen flex flex-col selection:bg-[#FEBC11] selection:text-black transition-colors duration-200 overflow-x-clip touch-manipulation ${
         isLight ? 'bg-[#F7F7F4] text-black' : 'bg-[#121214] text-gray-100'
       }`}
     >

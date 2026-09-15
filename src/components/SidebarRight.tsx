@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { RequestTicket, Language } from '../types';
 
 interface SidebarRightProps {
@@ -20,204 +20,239 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
   language,
   theme = 'dark',
 }) => {
+  const [showMobileDetails, setShowMobileDetails] = useState(false);
+
+  useEffect(() => {
+    if (!showMobileDetails) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowMobileDetails(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showMobileDetails]);
+
   const tags = ['#V-Indie', '#Lo-fi Chill', '#CoffeeJazz', '#Acoustic', '#DeepWork'];
   const isLight = theme === 'light';
 
   return (
     <div className="space-y-6">
-      {/* Gate 7 Roastery DNA Card */}
-      <section
-        className={`p-6 relative overflow-hidden transition-colors duration-200 ${
-          isLight
-            ? 'bg-[#FEBC11] border-3 border-black shadow-[5px_5px_0px_#000000] text-black'
-            : 'bg-[#1C1A14] border-4 border-[#FEBC11] shadow-brutal-gold text-white'
+      <div
+        id="mobile-roastery-details"
+        role="region"
+        aria-label={language === 'vi' ? 'Gate 7 Roastery DNA và hàng đợi yêu cầu tại quán' : 'Gate 7 Roastery DNA and store request queue'}
+        className={`${showMobileDetails ? 'block' : 'hidden'} md:block fixed md:static top-24 bottom-24 left-3 right-16 z-40 overflow-y-auto overscroll-contain md:overflow-visible p-2 md:p-0 space-y-6 border-2 md:border-0 border-[#FEBC11] shadow-brutal md:shadow-none ${
+          isLight ? 'bg-white md:bg-transparent' : 'bg-[#151518] md:bg-transparent'
         }`}
       >
-        <div className="space-y-3">
-          <div
-            className={`inline-block text-[11px] font-black uppercase px-2.5 py-1 border border-black ${
-              isLight ? 'bg-black text-white' : 'bg-[#FEBC11] text-[#0D0D0E]'
-            }`}
-          >
-            GATE 7 ROASTERY DNA
-          </div>
-          <h3
-            className={`text-2xl font-black leading-tight uppercase ${
-              isLight ? 'text-black' : 'text-white'
-            }`}
-          >
-            {language === 'vi' ? 'Ngôi Nhà Thứ Hai, Nhạc Của Bạn' : 'Your Second Home, Your Sound'}
-          </h3>
-          <p
-            className={`text-xs md:text-sm font-semibold leading-relaxed ${
-              isLight ? 'text-black' : 'text-gray-300'
-            }`}
-          >
-            {language === 'vi'
-              ? 'Tại Gate 7, âm nhạc không đơn thuần là âm thanh nền—nó là linh hồn đánh thức vị giác cùng từng mẻ hạt cà phê mới rang. Tuyển chọn độc bản đồng hành với bạn qua mỗi khoảnh khắc trong ngày.'
-              : 'At Gate 7, music is more than background sound—it is the soul that awakens your palate alongside freshly roasted beans. Curated to accompany your daily flow.'}
-          </p>
-        </div>
-
-        {/* 4 Core Pillars */}
-        <div className="grid grid-cols-1 gap-2.5 pt-5">
-          <div
-            onClick={() => onDNAFeatureClick('Chuyển Đổi Mượt Mà')}
-            className={`p-3.5 border-2 border-black shadow-brutal transition-colors cursor-pointer ${
-              isLight
-                ? 'bg-white hover:bg-yellow-50'
-                : 'bg-[#131316] border-[#2E2E38] hover:border-[#FEBC11]'
-            }`}
-          >
-            <div
-              className={`flex items-center gap-2 font-black text-xs uppercase mb-0.5 ${
-                isLight ? 'text-black' : 'text-[#FEBC11]'
-              }`}
-            >
-              <i className="fa-solid fa-arrows-spin text-sm"></i>
-              <span>{language === 'vi' ? 'Chuyển Đổi Mượt Mà' : 'Seamless Transition'}</span>
-            </div>
-            <p className={`text-[11px] font-medium ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
-              {language === 'vi'
-                ? 'Chuyển danh sách phát trước 15 phút mỗi khung giờ để chuyển tiếp tự nhiên, không ngắt quãng.'
-                : 'Playlists crossfade 15 minutes before time slots for smooth, uninterrupted transitions.'}
-            </p>
-          </div>
-
-          <div
-            onClick={() => onDNAFeatureClick('Cảm Giác Cộng Đồng')}
-            className={`p-3.5 border-2 border-black shadow-brutal transition-colors cursor-pointer ${
-              isLight
-                ? 'bg-white hover:bg-blue-50'
-                : 'bg-[#131316] border-[#2E2E38] hover:border-blue-400'
-            }`}
-          >
-            <div
-              className={`flex items-center gap-2 font-black text-xs uppercase mb-0.5 ${
-                isLight ? 'text-blue-700' : 'text-blue-400'
-              }`}
-            >
-              <i className="fa-solid fa-people-group text-sm"></i>
-              <span>{language === 'vi' ? 'Cảm Giác Cộng Đồng' : 'Community Ambiance'}</span>
-            </div>
-            <p className={`text-[11px] font-medium ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
-              {language === 'vi'
-                ? 'Âm thanh cân chỉnh âm lượng chuẩn (70-75dB) để hỗ trợ trọn vẹn cuộc trò chuyện và kết nối.'
-                : 'Acoustics precisely balanced at 70–75dB to foster meaningful conversation and connection.'}
-            </p>
-          </div>
-
-          <div
-            onClick={() => onDNAFeatureClick('Tuyển Chọn Chất Lượng')}
-            className={`p-3.5 border-2 border-black shadow-brutal transition-colors cursor-pointer ${
-              isLight
-                ? 'bg-white hover:bg-emerald-50'
-                : 'bg-[#131316] border-[#2E2E38] hover:border-[#1DB954]'
-            }`}
-          >
-            <div
-              className={`flex items-center gap-2 font-black text-xs uppercase mb-0.5 ${
-                isLight ? 'text-[#15803D]' : 'text-[#1DB954]'
-              }`}
-            >
-              <i className="fa-brands fa-spotify text-sm"></i>
-              <span>{language === 'vi' ? 'Tuyển Chọn Chất Lượng' : 'Curated Selection'}</span>
-            </div>
-            <p className={`text-[11px] font-medium ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
-              {language === 'vi'
-                ? 'Cập nhật thường xuyên trực tiếp từ Spotify Barista Team & tuyển tập nghệ sĩ Việt.'
-                : 'Continually refreshed by Spotify Barista Team & bespoke Vietnamese indie artists.'}
-            </p>
-          </div>
-
-          <div
-            onClick={() => onDNAFeatureClick('Nét Cá Nhân Độc Bản')}
-            className={`p-3.5 border-2 border-black shadow-brutal transition-colors cursor-pointer ${
-              isLight
-                ? 'bg-white hover:bg-yellow-50'
-                : 'bg-[#131316] border-[#2E2E38] hover:border-[#FEBC11]'
-            }`}
-          >
-            <div
-              className={`flex items-center gap-2 font-black text-xs uppercase mb-0.5 ${
-                isLight ? 'text-black' : 'text-[#FEBC11]'
-              }`}
-            >
-              <i className="fa-solid fa-sliders text-sm"></i>
-              <span>{language === 'vi' ? 'Nét Cá Nhân Độc Bản' : 'Bespoke Identity'}</span>
-            </div>
-            <p className={`text-[11px] font-medium ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
-              {language === 'vi'
-                ? 'Trộn danh sách phát để tạo âm thanh Gate 7 mang đậm bản sắc riêng của bạn.'
-                : 'Request tracks to co-create the distinctive soundstage of your Gate 7 session.'}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Community Live Request Tickets Queue */}
-      <section
-        className={`p-5 space-y-4 transition-colors duration-200 ${
-          isLight
-            ? 'bg-white border-3 border-black shadow-[5px_5px_0px_#000000]'
-            : 'bg-[#18181C] border-3 border-[#2E2E38] shadow-brutal'
-        }`}
-      >
-        <div className={`flex items-center justify-between border-b-2 pb-2 ${isLight ? 'border-black' : 'border-[#2E2E38]'}`}>
-          <h4 className={`text-xs font-black uppercase tracking-wider flex items-center gap-2 ${isLight ? 'text-black' : 'text-white'}`}>
-            <i className="fa-solid fa-ticket text-[#FEBC11]"></i>
-            {language === 'vi' ? 'HÀNG ĐỢI YÊU CẦU TẠI QUÁN' : 'STORE REQUEST QUEUE'}
-          </h4>
-          <span className="text-[10px] bg-[#FEBC11] text-[#0D0D0E] font-black px-2 py-0.5 border border-black">
-            {requestQueue.length} {language === 'vi' ? 'BÀI KẾ TIẾP' : 'UP NEXT'}
-          </span>
-        </div>
-
-        {/* Tickets */}
-        <div className="space-y-2.5 text-xs">
-          {requestQueue.slice(0, 4).map((ticket, index) => (
-            <div
-              key={ticket.id}
-              className={`p-3 border-2 border-black flex items-center justify-between shadow-brutal transition-all ${
-                isLight
-                  ? 'bg-white hover:bg-gray-50'
-                  : 'bg-[#202026] border-[#33333E] hover:border-[#FEBC11]/70'
-              }`}
-            >
-              <div className="min-w-0 pr-2">
-                <p className={`font-black truncate ${isLight ? 'text-black' : 'text-white'}`}>{ticket.songTitle}</p>
-                <p className={`text-[11px] font-medium truncate ${isLight ? 'text-gray-700' : 'text-gray-400'}`}>
-                  {ticket.tableLocation}
-                  {ticket.artist ? ` • ${ticket.artist}` : ''}
-                </p>
-              </div>
-              {ticket.status === 'next' || index === 0 ? (
-                <span className="text-[10px] font-black uppercase bg-[#FEBC11] text-[#0D0D0E] px-2 py-0.5 border border-black shrink-0 animate-pulse">
-                  {language === 'vi' ? 'Kế tiếp' : 'Next'}
-                </span>
-              ) : (
-                <span
-                  className={`text-[10px] font-mono font-bold px-2 py-0.5 border border-black shrink-0 ${
-                    isLight ? 'bg-white text-black' : 'bg-[#141416] text-gray-400 border-[#33333E]'
-                  }`}
-                >
-                  #{ticket.queueNumber || index + 1}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Submit Request Button */}
-        <button
-          id="sidebar-request-btn"
-          onClick={onRequestClick}
-          className="w-full py-2.5 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] text-xs font-black uppercase tracking-wider border-2 border-black shadow-brutal hover:scale-[1.01] active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
+        {/* Gate 7 Roastery DNA Card */}
+        <section
+          className={`p-6 relative overflow-hidden transition-colors duration-200 ${
+            isLight
+              ? 'bg-[#FEBC11] border-3 border-black shadow-[5px_5px_0px_#000000] text-black'
+              : 'bg-[#1C1A14] border-4 border-[#FEBC11] shadow-brutal-gold text-white'
+          }`}
         >
-          <i className="fa-solid fa-plus text-[#0D0D0E]"></i>
-          {language === 'vi' ? 'Gửi bài bạn muốn nghe ngay' : 'Request your song now'}
-        </button>
-      </section>
+          <div className="space-y-3">
+            <div
+              className={`inline-block text-[11px] font-black uppercase px-2.5 py-1 border border-black ${
+                isLight ? 'bg-black text-white' : 'bg-[#FEBC11] text-[#0D0D0E]'
+              }`}
+            >
+              GATE 7 ROASTERY DNA
+            </div>
+            <h3
+              className={`text-2xl font-black leading-tight uppercase ${
+                isLight ? 'text-black' : 'text-white'
+              }`}
+            >
+              {language === 'vi' ? 'Ngôi Nhà Thứ Hai, Nhạc Của Bạn' : 'Your Second Home, Your Sound'}
+            </h3>
+            <p
+              className={`text-xs md:text-sm font-semibold leading-relaxed ${
+                isLight ? 'text-black' : 'text-gray-300'
+              }`}
+            >
+              {language === 'vi'
+                ? 'Tại Gate 7, âm nhạc không đơn thuần là âm thanh nền—nó là linh hồn đánh thức vị giác cùng từng mẻ hạt cà phê mới rang. Tuyển chọn độc bản đồng hành với bạn qua mỗi khoảnh khắc trong ngày.'
+                : 'At Gate 7, music is more than background sound—it is the soul that awakens your palate alongside freshly roasted beans. Curated to accompany your daily flow.'}
+            </p>
+          </div>
+
+          {/* 4 Core Pillars */}
+          <div className="grid grid-cols-1 gap-2.5 pt-5">
+            <div
+              onClick={() => onDNAFeatureClick('Chuyển Đổi Mượt Mà')}
+              className={`p-3.5 border-2 border-black shadow-brutal transition-colors cursor-pointer ${
+                isLight
+                  ? 'bg-white hover:bg-yellow-50'
+                  : 'bg-[#131316] border-[#2E2E38] hover:border-[#FEBC11]'
+              }`}
+            >
+              <div
+                className={`flex items-center gap-2 font-black text-xs uppercase mb-0.5 ${
+                  isLight ? 'text-black' : 'text-[#FEBC11]'
+                }`}
+              >
+                <i className="fa-solid fa-arrows-spin text-sm"></i>
+                <span>{language === 'vi' ? 'Chuyển Đổi Mượt Mà' : 'Seamless Transition'}</span>
+              </div>
+              <p className={`text-[11px] font-medium ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
+                {language === 'vi'
+                  ? 'Chuyển danh sách phát trước 15 phút mỗi khung giờ để chuyển tiếp tự nhiên, không ngắt quãng.'
+                  : 'Playlists crossfade 15 minutes before time slots for smooth, uninterrupted transitions.'}
+              </p>
+            </div>
+
+            <div
+              onClick={() => onDNAFeatureClick('Cảm Giác Cộng Đồng')}
+              className={`p-3.5 border-2 border-black shadow-brutal transition-colors cursor-pointer ${
+                isLight
+                  ? 'bg-white hover:bg-blue-50'
+                  : 'bg-[#131316] border-[#2E2E38] hover:border-blue-400'
+              }`}
+            >
+              <div
+                className={`flex items-center gap-2 font-black text-xs uppercase mb-0.5 ${
+                  isLight ? 'text-blue-700' : 'text-blue-400'
+                }`}
+              >
+                <i className="fa-solid fa-people-group text-sm"></i>
+                <span>{language === 'vi' ? 'Cảm Giác Cộng Đồng' : 'Community Ambiance'}</span>
+              </div>
+              <p className={`text-[11px] font-medium ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
+                {language === 'vi'
+                  ? 'Âm thanh cân chỉnh âm lượng chuẩn (70-75dB) để hỗ trợ trọn vẹn cuộc trò chuyện và kết nối.'
+                  : 'Acoustics precisely balanced at 70–75dB to foster meaningful conversation and connection.'}
+              </p>
+            </div>
+
+            <div
+              onClick={() => onDNAFeatureClick('Tuyển Chọn Chất Lượng')}
+              className={`p-3.5 border-2 border-black shadow-brutal transition-colors cursor-pointer ${
+                isLight
+                  ? 'bg-white hover:bg-emerald-50'
+                  : 'bg-[#131316] border-[#2E2E38] hover:border-[#1DB954]'
+              }`}
+            >
+              <div
+                className={`flex items-center gap-2 font-black text-xs uppercase mb-0.5 ${
+                  isLight ? 'text-[#15803D]' : 'text-[#1DB954]'
+                }`}
+              >
+                <i className="fa-brands fa-spotify text-sm"></i>
+                <span>{language === 'vi' ? 'Tuyển Chọn Chất Lượng' : 'Curated Selection'}</span>
+              </div>
+              <p className={`text-[11px] font-medium ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
+                {language === 'vi'
+                  ? 'Cập nhật thường xuyên trực tiếp từ Spotify Barista Team & tuyển tập nghệ sĩ Việt.'
+                  : 'Continually refreshed by Spotify Barista Team & bespoke Vietnamese indie artists.'}
+              </p>
+            </div>
+
+            <div
+              onClick={() => onDNAFeatureClick('Nét Cá Nhân Độc Bản')}
+              className={`p-3.5 border-2 border-black shadow-brutal transition-colors cursor-pointer ${
+                isLight
+                  ? 'bg-white hover:bg-yellow-50'
+                  : 'bg-[#131316] border-[#2E2E38] hover:border-[#FEBC11]'
+              }`}
+            >
+              <div
+                className={`flex items-center gap-2 font-black text-xs uppercase mb-0.5 ${
+                  isLight ? 'text-black' : 'text-[#FEBC11]'
+                }`}
+              >
+                <i className="fa-solid fa-sliders text-sm"></i>
+                <span>{language === 'vi' ? 'Nét Cá Nhân Độc Bản' : 'Bespoke Identity'}</span>
+              </div>
+              <p className={`text-[11px] font-medium ${isLight ? 'text-gray-800' : 'text-gray-400'}`}>
+                {language === 'vi'
+                  ? 'Trộn danh sách phát để tạo âm thanh Gate 7 mang đậm bản sắc riêng của bạn.'
+                  : 'Request tracks to co-create the distinctive soundstage of your Gate 7 session.'}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Community Live Request Tickets Queue */}
+        <section
+          className={`p-5 space-y-4 transition-colors duration-200 ${
+            isLight
+              ? 'bg-white border-3 border-black shadow-[5px_5px_0px_#000000]'
+              : 'bg-[#18181C] border-3 border-[#2E2E38] shadow-brutal'
+          }`}
+        >
+          <div className={`flex items-center justify-between border-b-2 pb-2 ${isLight ? 'border-black' : 'border-[#2E2E38]'}`}>
+            <h4 className={`text-xs font-black uppercase tracking-wider flex items-center gap-2 ${isLight ? 'text-black' : 'text-white'}`}>
+              <i className="fa-solid fa-ticket text-[#FEBC11]"></i>
+              {language === 'vi' ? 'HÀNG ĐỢI YÊU CẦU TẠI QUÁN' : 'STORE REQUEST QUEUE'}
+            </h4>
+            <span className="text-[10px] bg-[#FEBC11] text-[#0D0D0E] font-black px-2 py-0.5 border border-black">
+              {requestQueue.length} {language === 'vi' ? 'BÀI KẾ TIẾP' : 'UP NEXT'}
+            </span>
+          </div>
+
+          {/* Tickets */}
+          <div className="space-y-2.5 text-xs">
+            {requestQueue.slice(0, 4).map((ticket, index) => (
+              <div
+                key={ticket.id}
+                className={`p-3 border-2 border-black flex items-center justify-between shadow-brutal transition-all ${
+                  isLight
+                    ? 'bg-white hover:bg-gray-50'
+                    : 'bg-[#202026] border-[#33333E] hover:border-[#FEBC11]/70'
+                }`}
+              >
+                <div className="min-w-0 pr-2">
+                  <p className={`font-black truncate ${isLight ? 'text-black' : 'text-white'}`}>{ticket.songTitle}</p>
+                  <p className={`text-[11px] font-medium truncate ${isLight ? 'text-gray-700' : 'text-gray-400'}`}>
+                    {ticket.tableLocation}
+                    {ticket.artist ? ` • ${ticket.artist}` : ''}
+                  </p>
+                </div>
+                {ticket.status === 'next' || index === 0 ? (
+                  <span className="text-[10px] font-black uppercase bg-[#FEBC11] text-[#0D0D0E] px-2 py-0.5 border border-black shrink-0 animate-pulse">
+                    {language === 'vi' ? 'Kế tiếp' : 'Next'}
+                  </span>
+                ) : (
+                  <span
+                    className={`text-[10px] font-mono font-bold px-2 py-0.5 border border-black shrink-0 ${
+                      isLight ? 'bg-white text-black' : 'bg-[#141416] text-gray-400 border-[#33333E]'
+                    }`}
+                  >
+                    #{ticket.queueNumber || index + 1}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Submit Request Button */}
+          <button
+            id="sidebar-request-btn"
+            onClick={onRequestClick}
+            className="w-full py-2.5 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] text-xs font-black uppercase tracking-wider border-2 border-black shadow-brutal hover:scale-[1.01] active:translate-y-0.5 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <i className="fa-solid fa-plus text-[#0D0D0E]"></i>
+            {language === 'vi' ? 'Gửi bài bạn muốn nghe ngay' : 'Request your song now'}
+          </button>
+        </section>
+
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowMobileDetails((visible) => !visible)}
+        aria-expanded={showMobileDetails}
+        aria-controls="mobile-roastery-details"
+        aria-label={language === 'vi'
+          ? `${showMobileDetails ? 'Ẩn' : 'Hiện'} Roastery DNA và hàng đợi yêu cầu tại quán`
+          : `${showMobileDetails ? 'Hide' : 'Show'} Roastery DNA and store request queue`}
+        title={language === 'vi' ? 'Roastery DNA & hàng đợi tại quán' : 'Roastery DNA & store queue'}
+        className="md:hidden fixed top-1/2 right-3 -translate-y-1/2 z-40 w-11 h-11 flex items-center justify-center bg-[#FEBC11] text-black border-2 border-black shadow-brutal cursor-pointer active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FEBC11]"
+      >
+        <i className={`fa-solid ${showMobileDetails ? 'fa-xmark' : 'fa-mug-hot'} text-lg`} aria-hidden="true" />
+      </button>
 
       {/* Gu Âm Nhạc & Tâm Trạng Tags */}
       <div

@@ -118,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
             : 'bg-[#17171A] border-b-2 border-[#2A2A32] shadow-xl text-white'
         }`}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 md:gap-4">
+        <div className="max-w-7xl mx-auto flex flex-wrap md:flex-nowrap items-center justify-between gap-2 md:gap-4">
           {/* Gate 7 Official Brand Logo - Gently placed directly on the page */}
           <div className="flex items-center shrink-0">
             <div
@@ -141,22 +141,25 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Search Bar — hidden on mobile, visible from md */}
-          <div className="flex-1 max-w-xl hidden md:flex items-center gap-2">
-            <div className="relative w-full">
+          {/* Search stays on its own row on mobile. */}
+          <form
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSearchSubmit();
+            }}
+            className="order-last w-full md:order-none md:w-auto md:flex-1 md:max-w-xl flex items-center gap-2"
+          >
+            <div className="relative min-w-0 flex-1">
               <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isLight ? 'text-gray-600' : 'text-gray-400'}`} />
               <input
-                type="text"
+                type="search"
+                aria-label={language === 'vi' ? 'Tìm bài hát, nghệ sĩ, playlist' : 'Search songs, artists, playlists'}
+                enterKeyHint="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    onSearchSubmit();
-                  }
-                }}
                 placeholder={language === 'vi' ? 'Tìm bài hát, nghệ sĩ, playlist đang phát tại Gate 7...' : 'Search songs, artists, playlists at Gate 7...'}
-                className={`w-full text-xs font-bold pl-10 pr-4 py-2.5 border-2 border-black shadow-brutal focus:outline-none focus:border-[#FEBC11] transition-all ${
+                className={`w-full text-xs font-bold pl-10 pr-10 py-2.5 border-2 border-black shadow-brutal focus:outline-none focus:border-[#FEBC11] transition-all ${
                   isLight
                     ? 'bg-white text-black placeholder-gray-500'
                     : 'bg-[#1F1F24] text-white placeholder-gray-400'
@@ -176,18 +179,15 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Mobile Search Icon — visible only on mobile */}
-          <button
-            onClick={onSearchSubmit}
-            className={`flex md:hidden items-center justify-center w-8 h-8 border-2 border-black shadow-brutal shrink-0 ${
-              isLight ? 'bg-white text-black' : 'bg-[#1F1F24] text-white'
-            }`}
-            title={language === 'vi' ? 'Tìm kiếm' : 'Search'}
-          >
-            <Search className="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="submit"
+              className="flex items-center justify-center w-11 h-11 border-2 border-black bg-[#FEBC11] text-black shadow-brutal shrink-0 cursor-pointer"
+              aria-label={language === 'vi' ? 'Tìm kiếm' : 'Search'}
+              title={language === 'vi' ? 'Tìm kiếm' : 'Search'}
+            >
+              <Search className="w-4 h-4" />
+            </button>
+          </form>
 
           {/* Quick Action Controls */}
           <div className="flex items-center gap-1.5 md:gap-2.5 shrink-0">

@@ -6,9 +6,9 @@ html {
   text-size-adjust: 100%;
 }
 
-/* Prevent horizontal overflow on all screens */
+/* Clip horizontal overflow without creating a scroll container for the sticky header. */
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Make inputs/selects not trigger zoom on iOS (requires font-size >= 16px equivalent) */
@@ -207,5 +207,4 @@ input, select, textarea {
 .animate-heart-float {
   animation: heartFloatUp 2s ease-out infinite;
 }
-
 

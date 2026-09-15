@@ -64,13 +64,13 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
 
   useEffect(() => {
     if (!showQueue) return;
-    const handlePointerDown = (event: MouseEvent) => {
+    const handlePointerDown = (event: PointerEvent) => {
       if (!queuePanelRef.current?.contains(event.target as Node)) {
         setShowQueue(false);
       }
     };
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [showQueue]);
 
   const formatTime = (seconds: number) => {
@@ -328,8 +328,8 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
           </button>
         </div>
 
-        <div className="hidden md:flex items-center justify-end gap-2.5 flex-1 md:w-1/3 relative">
-          <span className={`text-[11px] font-mono font-bold whitespace-nowrap ${isLight ? 'text-black' : 'text-gray-300'}`}>
+        <div className="flex items-center justify-end gap-2 md:gap-2.5 shrink-0 md:flex-1 md:w-1/3 relative">
+          <span className={`hidden md:inline text-[11px] font-mono font-bold whitespace-nowrap ${isLight ? 'text-black' : 'text-gray-300'}`}>
             {formatTime(playbackSec)} / {currentTrack.duration}
           </span>
 
@@ -337,7 +337,7 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
             <button
               type="button"
               onClick={() => setShowQueue((visible) => !visible)}
-              className={`flex items-center gap-2 text-xs font-black px-2.5 py-1 border-2 border-black shadow-brutal cursor-pointer transition-colors ${
+              className={`flex items-center justify-center gap-2 w-9 h-10 md:w-auto md:h-auto text-xs font-black md:px-2.5 md:py-1 border-2 border-black shadow-brutal cursor-pointer transition-colors ${
                 showQueue
                   ? 'bg-[#FEBC11] text-[#0D0D0E]'
                   : isLight
@@ -345,6 +345,9 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
                     : 'bg-[#202026] hover:bg-[#282830] text-gray-200'
               }`}
               title={language === 'vi' ? 'Hàng đợi' : 'Queue'}
+              aria-label={language === 'vi' ? 'Hàng đợi' : 'Queue'}
+              aria-expanded={showQueue}
+              aria-controls="mini-player-queue"
             >
               <i className="fa-solid fa-list"></i>
               <span className="hidden xl:inline text-[11px]">QUEUE {spotifyQueue.length}</span>
@@ -352,7 +355,8 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
 
             {showQueue && (
               <div
-                className={`absolute bottom-full right-0 mb-3 w-[min(24rem,calc(100vw-1.5rem))] border-2 border-black shadow-brutal-xl p-3 z-50 ${
+                id="mini-player-queue"
+                className={`fixed bottom-20 right-3 md:absolute md:bottom-full md:right-0 md:mb-3 max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain w-[min(24rem,calc(100vw-1.5rem))] border-2 border-black shadow-brutal-xl p-3 z-50 ${
                   isLight ? 'bg-white text-black' : 'bg-[#1A1A1E] text-white border-[#FEBC11]'
                 }`}
               >
@@ -482,14 +486,14 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
           <button
             type="button"
             onClick={onOpenSpotify}
-            className="inline-flex items-center gap-1.5 text-xs font-black bg-[#FEBC11] text-[#0D0D0E] border-2 border-black px-2.5 py-1 shadow-brutal hover:bg-yellow-400 transition-colors cursor-pointer"
+            className="hidden md:inline-flex items-center gap-1.5 text-xs font-black bg-[#FEBC11] text-[#0D0D0E] border-2 border-black px-2.5 py-1 shadow-brutal hover:bg-yellow-400 transition-colors cursor-pointer"
             title={language === 'vi' ? 'Mở bài đang phát trên Spotify' : 'Open currently playing track on Spotify'}
           >
             <i className="fa-brands fa-spotify text-sm"></i>
             <span>SPOTIFY</span>
           </button>
 
-          <div className="flex items-center gap-2 w-28">
+          <div className="hidden md:flex items-center gap-2 w-28">
             <button
               type="button"
               onClick={onMuteToggle}
