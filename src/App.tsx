@@ -26,8 +26,6 @@ import {
   fetchSpotifyArtist,
   fetchSpotifyArtistTopTracks,
   SONIC_CATEGORY_QUERIES,
-  fetchSpotifyPlaybackState,
-  fetchSpotifyQueue,
   fetchSpotifyCurrentUser,
   transferSpotifyPlayback,
   startSpotifyPlayback,
@@ -54,13 +52,6 @@ function getInitialTimeSlots(): TimeSlot[] {
   }));
 }
 
-function getInitialActivePlaylistId(): string {
-  const currentSlot = getInitialTimeSlots().find((slot) => slot.isCurrentSlot);
-  return currentSlot?.playlists.find((playlist) => playlist.isNowPlaying)?.id
-    || currentSlot?.playlists[0]?.id
-    || 'bossa-nova-indie';
-}
-
 /** Ensure only one playlist is marked isNowPlaying (matches activePlaylistId). */
 function withExclusiveNowPlaying(slots: TimeSlot[], activeId: string): TimeSlot[] {
   let changed = false;
@@ -73,12 +64,6 @@ function withExclusiveNowPlaying(slots: TimeSlot[], activeId: string): TimeSlot[
     }),
   }));
   return changed ? next : slots;
-}
-
-function findPlaylistIdBySpotifyId(slots: TimeSlot[], spotifyPlaylistId: string): string | undefined {
-  return slots
-    .flatMap((slot) => slot.playlists)
-    .find((playlist) => playlist.spotifyId === spotifyPlaylistId)?.id;
 }
 
 function toAppTrack(track: any, fallbackCover = '', previousTrack?: Track): Track {
@@ -193,8 +178,7 @@ export default function App() {
   const [playbackSec, setPlaybackSec] = useState<number>(() => getPersistedPlaybackState()?.playbackSec ?? 0);
   const [likesCount, setLikesCount] = useState<number>(46);
   const [isLiked, setIsLiked] = useState<boolean>(false);
-  const [activePlaylistId, setActivePlaylistId] = useState<string>(getInitialActivePlaylistId);
-  const activePlaylistIdRef = useRef(activePlaylistId);
+  const [playbackPlaylistId, setPlaybackPlaylistId] = useState<string>('');
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(getInitialTimeSlots);
   const [requestQueue, setRequestQueue] = useState<RequestTicket[]>(INITIAL_REQUESTS);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -210,6 +194,26 @@ export default function App() {
   const [playbackContextName, setPlaybackContextName] = useState<string>('');
   const [playbackContextUri, setPlaybackContextUri] = useState<string>('');
   const playbackContextUriRef = useRef('');
+  // Browsing a playlist never changes playback. Prefer the actual Spotify
+  // context, then match the current song against the loaded playlist tracks.
+  const playlists = timeSlots.flatMap((slot) => slot.playlists);
+  const contextPlaylistId = playbackContextUri.startsWith('spotify:playlist:')
+    ? playbackContextUri.split(':').pop()
+    : undefined;
+  const matchingPlaylists = currentTrack.spotifyId
+    ? playlists.filter((playlist) => playlist.tracks.some(
+        (track) => track.spotifyId === currentTrack.spotifyId,
+      ))
+    : [];
+  const activePlaylistId = (currentTrack.spotifyId && contextPlaylistId
+    ? playlists.find((playlist) => playlist.spotifyId === contextPlaylistId
+        && (playlist.tracks.length === 0 || matchingPlaylists.includes(playlist)))?.id
+    : undefined)
+    || matchingPlaylists.find((playlist) => playlist.id === playbackPlaylistId)?.id
+    || matchingPlaylists[0]?.id
+    || '';
+  const activePlaylistIdRef = useRef(activePlaylistId);
+
   const [albumModal, setAlbumModal] = useState<AlbumDetail | null>(null);
   const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
   const [isAlbumLoading, setIsAlbumLoading] = useState(false);
@@ -259,6 +263,13 @@ export default function App() {
 
   const resolvePlaybackContext = useCallback(async (contextUri?: string | null, fallbackName?: string) => {
     const uri = contextUri || '';
+    // The SDK can emit several state events for one track/context. Metadata is
+    // already resolved (or being resolved) for this URI, so never turn those
+    // events into repeated Spotify Web API requests.
+    if (uri === playbackContextUriRef.current) {
+      if (fallbackName) setPlaybackContextName((name) => name || fallbackName);
+      return;
+    }
     setPlaybackContextUri(uri);
     playbackContextUriRef.current = uri;
 
@@ -443,30 +454,8 @@ export default function App() {
         setSpotifySource('web');
         setSpotifyDesktopStatus('');
 
-        // Immediately fetch live playback state from the API. This covers the
-        // case where Spotify is already playing on another device (desktop app,
-        // phone) and we just need to mirror it — no user interaction required.
-        try {
-          const state = await fetchSpotifyPlaybackState();
-          if (state?.item?.id) {
-            // A live session exists — mirror it directly.
-            const liveTrack = toAppTrack(state.item, currentTrackRef.current.coverUrl, currentTrackRef.current);
-            setCurrentTrack(liveTrack);
-            setPlaybackSec(Math.floor(Math.max(0, state.progress_ms || 0) / 1000));
-            setIsPlaying(Boolean(state.is_playing));
-            void resolvePlaybackContext(
-              state.context?.uri || '',
-              state.context?.type === 'album' ? (state.item?.album?.name || 'Album') : undefined,
-            );
-            pendingRestoreRef.current = null;
-            return;
-          }
-        } catch {
-          // If the API call fails, fall through to persisted state restore.
-        }
-
-        // No active Spotify session — restore the last played track from
-        // localStorage so the UI shows what was playing before the reload.
+        // Playback state comes from `player_state_changed`; until the SDK emits
+        // it, restore the last local state instead of querying /v1/me/player.
         const saved = getPersistedPlaybackState();
         if (saved?.track?.spotifyId) {
           setCurrentTrack(saved.track);
@@ -506,6 +495,17 @@ export default function App() {
         setPlaybackSec(Math.floor((state.position || 0) / 1000));
         setIsPlaying(!state.paused);
 
+        const currentId = state.track_window.current_track.id;
+        const seen = new Set<string>();
+        setSpotifyQueue((state.track_window.next_tracks || [])
+          .filter((track: any) => track?.id && track.type !== 'episode')
+          .map((track: any) => toAppTrack(track))
+          .filter((track: Track) => {
+            if (!track.spotifyId || track.spotifyId === currentId || seen.has(track.spotifyId)) return false;
+            seen.add(track.spotifyId);
+            return true;
+          }));
+
         // Prefer Spotify playlist context so LIVE moves with the real source playlist.
         // Never mark every playlist that merely contains the track — that duplicates LIVE.
         const contextUri = state.context?.uri || '';
@@ -515,18 +515,7 @@ export default function App() {
             ? state.track_window.current_track.album?.name
             : undefined,
         );
-        const contextId = contextUri.startsWith('spotify:playlist:')
-          ? contextUri.split(':').pop()
-          : undefined;
-        if (contextId) {
-          setTimeSlots((slots) => {
-            const matchingId = findPlaylistIdBySpotifyId(slots, contextId);
-            if (matchingId && matchingId !== activePlaylistIdRef.current) {
-              setActivePlaylistId(matchingId);
-            }
-            return matchingId ? withExclusiveNowPlaying(slots, matchingId) : slots;
-          });
-        }
+
       });
       player.connect();
     };
@@ -561,126 +550,6 @@ export default function App() {
     }, 1000);
     return () => window.clearInterval(interval);
   }, [spotifyPlayerReady]);
-
-  useEffect(() => {
-    if (spotifyAuthStatus !== 'connected') return;
-    let cancelled = false;
-    let playbackRequestActive = false;
-    let queueRequestActive = false;
-
-    const syncPlayback = async () => {
-      if (playbackRequestActive) return;
-      playbackRequestActive = true;
-      try {
-        const state = await fetchSpotifyPlaybackState();
-        if (cancelled) return;
-
-        if (!state) {
-          // No active Spotify device. If the UI is still showing the empty
-          // placeholder track, restore from localStorage so the user sees
-          // the last played song rather than a blank player.
-          if (!currentTrackRef.current.spotifyId) {
-            const saved = getPersistedPlaybackState();
-            if (saved?.track?.spotifyId) {
-              setCurrentTrack(saved.track);
-              setPlaybackSec(saved.playbackSec);
-              setIsPlaying(false);
-            }
-          }
-          return;
-        }
-
-        const currentItem = state.item;
-        const currentDeviceId = state.device?.id;
-        const isGate7Device = Boolean(currentDeviceId && currentDeviceId === spotifyDeviceIdRef.current);
-        setSpotifySource(isGate7Device ? 'web' : 'desktop');
-        setIsPlaying(Boolean(state.is_playing));
-        setPlaybackSec(Math.floor(Math.max(0, state.progress_ms || 0) / 1000));
-        if (state.smart_shuffle) {
-          setShuffleMode('smart');
-        } else if (typeof state.shuffle_state === 'boolean') {
-          setShuffleMode(state.shuffle_state ? 'shuffle' : 'off');
-        }
-        if (state.repeat_state === 'track' || state.repeat_state === 'context' || state.repeat_state === 'off') {
-          setRepeatMode(state.repeat_state);
-        }
-
-        if (currentItem?.id) {
-          setCurrentTrack((previousTrack) => {
-            const nextTrack = toAppTrack(currentItem, previousTrack.coverUrl, previousTrack);
-            return previousTrack.spotifyId === nextTrack.spotifyId
-              && previousTrack.title === nextTrack.title
-              && previousTrack.artist === nextTrack.artist
-              && previousTrack.albumId === nextTrack.albumId
-              && previousTrack.artistId === nextTrack.artistId
-              && previousTrack.durationSec === nextTrack.durationSec
-              ? previousTrack
-              : nextTrack;
-          });
-        }
-
-        const contextId = state.context?.type === 'playlist'
-          ? state.context.uri?.split(':').pop()
-          : undefined;
-        void resolvePlaybackContext(
-          state.context?.uri,
-          state.context?.type === 'album'
-            ? (currentItem?.album?.name || 'Album')
-            : undefined,
-        );
-        if (contextId) {
-          setTimeSlots((slots) => {
-            const matchingId = findPlaylistIdBySpotifyId(slots, contextId);
-            if (matchingId && matchingId !== activePlaylistIdRef.current) {
-              setActivePlaylistId(matchingId);
-            }
-            return matchingId ? withExclusiveNowPlaying(slots, matchingId) : slots;
-          });
-        }
-        // Do not fall back to the track title — that overwrites "Next from" with the song name.
-      } catch (error) {
-        if (!cancelled) console.warn('Could not sync Spotify playback state:', error);
-      } finally {
-        playbackRequestActive = false;
-      }
-    };
-
-    const syncQueue = async () => {
-      if (queueRequestActive) return;
-      queueRequestActive = true;
-      try {
-        const state = await fetchSpotifyQueue();
-        if (cancelled || !state) return;
-        const currentId = currentTrackRef.current.spotifyId;
-        const seen = new Set<string>();
-        setSpotifyQueue((state.queue || [])
-          .filter((item: any) => item?.id && item.type !== 'episode')
-          .map((item: any) => toAppTrack(item))
-          .filter((track) => {
-            if (!track.spotifyId) return false;
-            // Single-track / autoplay sessions often repeat the current song in the queue.
-            if (currentId && track.spotifyId === currentId) return false;
-            if (seen.has(track.spotifyId)) return false;
-            seen.add(track.spotifyId);
-            return true;
-          }));
-      } catch (error) {
-        if (!cancelled) console.warn('Could not sync Spotify queue:', error);
-      } finally {
-        queueRequestActive = false;
-      }
-    };
-
-    void syncPlayback();
-    void syncQueue();
-    const playbackInterval = window.setInterval(() => void syncPlayback(), 2500);
-    const queueInterval = window.setInterval(() => void syncQueue(), 5000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(playbackInterval);
-      window.clearInterval(queueInterval);
-    };
-  }, [spotifyAuthStatus]);
 
   const handleOpenSpotify = (target?: SpotifyItemTarget) => {
     if (target) {
@@ -829,8 +698,7 @@ export default function App() {
   };
 
   const handleSelectPlaylist = (playlist: Playlist) => {
-    setActivePlaylistId(playlist.id);
-    loadPlaylistTracks(playlist);
+    void loadPlaylistTracks(playlist);
   };
 
   const handleClearSearch = () => {
@@ -889,16 +757,7 @@ export default function App() {
     setAlbumError(undefined);
 
     try {
-      let albumId = currentTrack.albumId;
-      if (!albumId && currentTrack.spotifyId) {
-        const state = await fetchSpotifyPlaybackState();
-        albumId = state?.item?.album?.id;
-        if (albumId) {
-          setCurrentTrack((previous) => previous.spotifyId === currentTrack.spotifyId
-            ? { ...previous, albumId, albumType: state?.item?.album?.album_type, releaseDate: state?.item?.album?.release_date }
-            : previous);
-        }
-      }
+      const albumId = currentTrack.albumId;
       if (!albumId) {
         throw new Error(language === 'vi' ? 'Không tìm thấy album của bài hát này.' : 'Could not find this track’s album.');
       }
@@ -933,16 +792,7 @@ export default function App() {
     setArtistError(undefined);
 
     try {
-      let artistId = currentTrack.artistId;
-      if (!artistId && currentTrack.spotifyId) {
-        const state = await fetchSpotifyPlaybackState();
-        artistId = state?.item?.artists?.[0]?.id;
-        if (artistId) {
-          setCurrentTrack((previous) => previous.spotifyId === currentTrack.spotifyId
-            ? { ...previous, artistId }
-            : previous);
-        }
-      }
+      const artistId = currentTrack.artistId;
       if (!artistId) {
         throw new Error(language === 'vi' ? 'Không tìm thấy nghệ sĩ của bài hát này.' : 'Could not find this track’s artist.');
       }
@@ -1013,8 +863,6 @@ export default function App() {
   };
 
   const handlePlaySpecificTrack = async (track: Track, playlist: Playlist) => {
-    setActivePlaylistId(playlist.id);
-
     // Only use context_uri for real Spotify playlists (not synthetic ones like
     // search results whose spotifyId is a local key, not a real Spotify ID).
     const isRealSpotifyPlaylist = playlist.spotifyId
@@ -1040,7 +888,10 @@ export default function App() {
       return;
     }
 
-    await startPlaybackWithBody(playbackBody, track);
+    const started = await startPlaybackWithBody(playbackBody, track);
+    if (!started) return;
+
+    setPlaybackPlaylistId(playlist.id);
     setPlaybackContextName(playlist.title);
     if (isRealSpotifyPlaylist && playlist.spotifyId) {
       void resolvePlaybackContext(`spotify:playlist:${playlist.spotifyId}`, playlist.title);
@@ -1071,7 +922,7 @@ export default function App() {
     const started = await startPlaybackWithBody({ uris }, track);
     if (!started) return;
 
-    setActivePlaylistId('search-results');
+    setPlaybackPlaylistId('search-results');
     setPlaybackContextName(`Search: ${query}`);
     setPlaybackContextUri('');
     playbackContextUriRef.current = '';

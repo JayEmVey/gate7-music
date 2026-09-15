@@ -124,7 +124,9 @@ function queueSpotifyRequest(request: () => Promise<Response>): Promise<Response
 
 function noteSpotifyRateLimit(response: Response): void {
   const retryAfter = Number(response.headers.get('Retry-After') || 0);
-  const delaySeconds = Math.min(Math.max(retryAfter || 2, 1), 30);
+  // Development Mode quota lockouts can last many hours. Honour the server's
+  // full Retry-After value so a rejected request cannot become more traffic.
+  const delaySeconds = Math.min(Math.max(retryAfter || 2, 1), 24 * 60 * 60);
   spotifyRateLimitUntil = Math.max(spotifyRateLimitUntil, Date.now() + delaySeconds * 1000);
 }
 
@@ -193,11 +195,6 @@ export interface SpotifyTrackAudioFeatures {
   valence: number;
 }
 
-export interface SpotifyQueueState {
-  currently_playing?: any;
-  queue?: any[];
-}
-
 export async function fetchSpotifyCurrentUser(): Promise<{
   id: string;
   displayName: string;
@@ -214,12 +211,6 @@ export async function fetchSpotifyCurrentUser(): Promise<{
     profileUrl: data.external_urls?.spotify || `https://open.spotify.com/user/${data.id}`,
     imageUrl: data.images?.[0]?.url,
   };
-}
-
-export async function fetchSpotifyQueue(): Promise<SpotifyQueueState | null> {
-  const response = await spotifyFetch('/me/player/queue');
-  if (!response.ok) return null;
-  return response.json();
 }
 
 export async function fetchSpotifySearchTracks(query: string): Promise<SpotifyPlaylistTrack[]> {
@@ -729,14 +720,9 @@ async function spotifyFetch(path: string, init: RequestInit = {}): Promise<Respo
       disconnectSpotifyUser();
     }
   }
-  // Playlist hydration can issue many requests during startup. Honor Spotify's
-  // retry hint and use bounded backoff so temporary rate limits do not become
-  // permanent empty playlists.
-  for (let attempt = 0; response.status === 429 && attempt < 3; attempt += 1) {
-    noteSpotifyRateLimit(response);
-    response = await queueSpotifyRequest(() => fetch(`https://api.spotify.com/v1${path}`, { ...init, headers }));
-    finishRequest(response.status);
-  }
+  // The shared request queue records the retry deadline. Do not automatically
+  // retry a rejected request: with a Development Mode quota lockout that would
+  // create additional traffic after the cooldown and conceal the 429 from UI.
   return response;
 }
 
