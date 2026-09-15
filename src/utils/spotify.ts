@@ -193,27 +193,9 @@ export interface SpotifyTrackAudioFeatures {
   valence: number;
 }
 
-export interface SpotifyPlaybackState {
-  device?: { id?: string; name?: string; type?: string; is_active?: boolean; volume_percent?: number };
-  is_playing: boolean;
-  progress_ms: number;
-  item?: any;
-  context?: { uri?: string; type?: string };
-  shuffle_state?: boolean;
-  /** Undocumented field returned by Get Playback State when Smart Shuffle is active. */
-  smart_shuffle?: boolean;
-  repeat_state?: 'track' | 'context' | 'off';
-}
-
 export interface SpotifyQueueState {
   currently_playing?: any;
   queue?: any[];
-}
-
-export async function fetchSpotifyPlaybackState(): Promise<SpotifyPlaybackState | null> {
-  const response = await spotifyFetch('/me/player');
-  if (response.status === 204 || !response.ok) return null;
-  return response.json();
 }
 
 export async function fetchSpotifyCurrentUser(): Promise<{
