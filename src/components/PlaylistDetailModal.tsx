@@ -3,12 +3,13 @@ import { Playlist, Track, Language, Theme } from '../types';
 import { DEFAULT_TRACK_COVER, getTrackCover } from '../data';
 import { SpotifyItemTarget } from './SpotifyChooserModal';
 import { useModalBehavior } from './useModalBehavior';
+import { getCoffeePairing } from '../utils/pairing';
 
 interface PlaylistDetailModalProps {
   playlist: Playlist | null;
   isOpen: boolean;
   onClose: () => void;
-  currentTrackId: string;
+  currentTrack: Track;
   isPlaying: boolean;
   onPlayTrack: (track: Track, playlist: Playlist) => void;
   onRetry?: () => void;
@@ -21,7 +22,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
   playlist,
   isOpen,
   onClose,
-  currentTrackId,
+  currentTrack,
   isPlaying,
   onPlayTrack,
   onRetry,
@@ -40,7 +41,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm" onClick={onClose}>
       <div
-        className={`relative w-full max-w-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] border-4 border-[#FEBC11] shadow-brutal-xl p-4 sm:p-8 overflow-y-auto overflow-x-hidden ${
+        className={`relative w-full max-w-6xl max-h-[calc(100dvh-1rem)] sm:max-h-[90vh] border-4 border-[#FEBC11] shadow-brutal-xl p-4 sm:p-8 overflow-y-auto overflow-x-hidden ${
           isLight ? 'bg-white text-black' : 'bg-[#18181C] text-gray-100'
         }`}
         role="dialog"
@@ -144,7 +145,11 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
           )}
 
           {playlist.tracks.map((track, idx) => {
-            const isCurrent = track.id === currentTrackId;
+            const isCurrent = track.id === currentTrack.id;
+            const pairingTrack = isCurrent && currentTrack.audioFeatures ? currentTrack : track;
+            const pairing = pairingTrack.audioFeatures
+              ? getCoffeePairing(pairingTrack.audioFeatures, '', language, pairingTrack.audioFeaturesSource)
+              : track.coffeePairing;
 
             return (
               <div
@@ -175,6 +180,8 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
                   </div>
                   <img
                     src={getTrackCover(track)}
+                    loading="lazy"
+                    decoding="async"
                     alt={track.title}
                     className="w-9 h-9 object-cover border border-black shadow-sm shrink-0"
                   />
@@ -193,7 +200,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
                 {/* Pairing Note */}
                 <div className={`hidden sm:flex items-center gap-1 text-[11px] font-bold ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
                   <i className="fa-solid fa-mug-hot text-[#FEBC11] text-[10px]"></i>
-                  <span>{track.coffeePairing || 'Cà phê Muối'}</span>
+                  <span>{pairing || (language === 'vi' ? 'Phân tích khi phát' : 'Analyze when played')}</span>
                 </div>
 
                 {/* Duration & Play Action */}

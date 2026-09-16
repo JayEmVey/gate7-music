@@ -11,7 +11,8 @@ export const SPOTIFY_SCOPE_VERSION = 'web-playback-playlists-v4';
 const PKCE_VERIFIER_KEY = 'spotify_pkce_verifier';
 const PKCE_STATE_KEY = 'spotify_oauth_state';
 const PKCE_REDIRECT_URI_KEY = 'spotify_oauth_redirect_uri';
-const AUDIO_ANALYZER_URL = import.meta.env.CLOUDFLARE_WORKER_URL?.trim();
+const AUDIO_ANALYZER_URL = import.meta.env.CLOUDFLARE_WORKER_URL?.trim() || '/api/analysis';
+const audioFeaturesRequestCache = new Map<string, Promise<SpotifyTrackAudioFeatures | null>>();
 let spotifyRequestQueue: Promise<unknown> = Promise.resolve();
 let spotifyRateLimitUntil = 0;
 
@@ -180,6 +181,7 @@ export interface SpotifyPlaylistTrack {
   durationSec: number;
   coverUrl: string;
   spotifyUri: string;
+  audioFeatures?: SpotifyTrackAudioFeatures;
 }
 
 export interface SpotifyTrackAudioFeatures {
@@ -193,6 +195,38 @@ export interface SpotifyTrackAudioFeatures {
   mode: number;
   tempo: number;
   valence: number;
+  availableFeatures?: Array<'energy' | 'tempo' | 'key' | 'mode'>;
+}
+
+interface CachedAudioAnalysis {
+  track_id: string;
+  bpm: number;
+  key?: string;
+  energy: number;
+}
+
+function mapCachedAnalysis(data: CachedAudioAnalysis | null | undefined): SpotifyTrackAudioFeatures | undefined {
+  if (!data || typeof data.bpm !== 'number' || typeof data.energy !== 'number') return undefined;
+
+  const keyMatch = typeof data.key === 'string' ? data.key.match(/^([A-G](?:#|b)?)(?:\s+(major|minor))?$/i) : null;
+  const keyNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const normalizedKey = keyMatch?.[1]?.replace('b', '#');
+  const key = normalizedKey ? keyNames.indexOf(normalizedKey) : -1;
+  const mode = keyMatch?.[2]?.toLowerCase() === 'major' ? 1 : keyMatch?.[2] ? 0 : -1;
+
+  return {
+    acousticness: 0,
+    danceability: 0,
+    energy: Number(data.energy),
+    instrumentalness: 0,
+    key,
+    liveness: 0,
+    loudness: 0,
+    mode,
+    tempo: Number(data.bpm),
+    valence: 0.5,
+    availableFeatures: ['energy', 'tempo', ...(key >= 0 ? ['key' as const] : []), ...(mode >= 0 ? ['mode' as const] : [])],
+  };
 }
 
 export async function fetchSpotifyCurrentUser(): Promise<{
@@ -464,40 +498,77 @@ export async function fetchSpotifyRecommendationsBySonicCategory(
   return results;
 }
 
-export async function fetchSpotifyTrackAudioFeatures(trackId: string): Promise<SpotifyTrackAudioFeatures | null> {
+async function fetchSpotifyTrackAudioFeaturesUncached(trackId: string): Promise<SpotifyTrackAudioFeatures | null> {
   if (!trackId || !AUDIO_ANALYZER_URL) return null;
 
   try {
-    const analyzerUrl = new URL(AUDIO_ANALYZER_URL);
+    const analyzerUrl = new URL(AUDIO_ANALYZER_URL, window.location.origin);
     analyzerUrl.searchParams.set('track_id', trackId);
-    const response = await fetch(analyzerUrl);
+    const response = await fetch(analyzerUrl, { signal: AbortSignal.timeout(5000) });
     if (!response.ok) return null;
     const data = await response.json();
-    if (!data || typeof data.bpm !== 'number') return null;
-
-    const keyMatch = typeof data.key === 'string' ? data.key.match(/^([A-G](?:#|b)?)(?:\s+(major|minor))?$/i) : null;
-    const keyNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const normalizedKey = keyMatch?.[1]?.replace('b', '#');
-    const key = normalizedKey ? keyNames.indexOf(normalizedKey) : -1;
-    const mode = keyMatch?.[2]?.toLowerCase() === 'major' ? 1 : keyMatch?.[2] ? 0 : -1;
-    const energy = Number(data.energy ?? 0);
-
-    return {
-      acousticness: 0,
-      danceability: 0,
-      energy,
-      instrumentalness: 0,
-      key,
-      liveness: 0,
-      loudness: 0,
-      mode,
-      tempo: Number(data.bpm),
-      valence: 0.5,
-    };
+    return mapCachedAnalysis(data) ?? null;
   } catch (error) {
     return null;
   }
 }
+
+export function fetchSpotifyTrackAudioFeatures(trackId: string): Promise<SpotifyTrackAudioFeatures | null> {
+  if (!trackId) return Promise.resolve(null);
+  const existing = audioFeaturesRequestCache.get(trackId);
+  if (existing) return existing;
+
+  const request = fetchSpotifyTrackAudioFeaturesUncached(trackId).then((features) => {
+    // Keep successful KV hits for the lifetime of the page. A miss is removed
+    // so newly generated analysis can be discovered on a later attempt.
+    if (!features) audioFeaturesRequestCache.delete(trackId);
+    return features;
+  }, (error) => {
+    audioFeaturesRequestCache.delete(trackId);
+    throw error;
+  });
+  audioFeaturesRequestCache.set(trackId, request);
+  return request;
+}
+
+export async function enrichSpotifyPlaylistTracksWithAudioFeatures(
+  tracks: SpotifyPlaylistTrack[],
+): Promise<SpotifyPlaylistTrack[]> {
+  const ids = [...new Set(tracks.filter((track) => !track.audioFeatures).map((track) => track.id))]
+    .filter((id) => /^[A-Za-z0-9]{22}$/.test(id));
+  const missing = ids.filter((id) => (batchAnalysisCache.get(id)?.expiresAt || 0) <= Date.now());
+  if (Date.now() >= batchRetryAt) {
+    for (let offset = 0; offset < missing.length; offset += 100) {
+      const chunk = missing.slice(offset, offset + 100).sort();
+      const key = chunk.join(',');
+      let request = batchAnalysisRequests.get(key);
+      if (!request) {
+        request = (async () => {
+          try {
+            const response = await fetch(`/api/analysis/batch?${new URLSearchParams({ ids: key })}`, { signal: AbortSignal.timeout(4000) });
+            if (!response.ok) throw new Error(`Analysis batch returned ${response.status}`);
+            const data = await response.json() as { tracks: Record<string, { status: string; analysis?: CachedAudioAnalysis }> };
+            if (!data.tracks) throw new Error('Invalid analysis response');
+            for (const id of chunk) {
+              const features = mapCachedAnalysis(data.tracks[id]?.analysis);
+              batchAnalysisCache.set(id, { features, expiresAt: Date.now() + (features ? 3600_000 : 60_000) });
+            }
+          } catch {
+            batchRetryAt = Date.now() + 30_000;
+          }
+        })().finally(() => batchAnalysisRequests.delete(key));
+        batchAnalysisRequests.set(key, request);
+      }
+      await request;
+      if (Date.now() < batchRetryAt) break;
+    }
+  }
+  return tracks.map((track) => ({ ...track, audioFeatures: track.audioFeatures || batchAnalysisCache.get(track.id)?.features }));
+}
+
+const batchAnalysisCache = new Map<string, { features?: SpotifyTrackAudioFeatures; expiresAt: number }>();
+const batchAnalysisRequests = new Map<string, Promise<void>>();
+let batchRetryAt = 0;
 
 export class SpotifyApiError extends Error {
   constructor(
@@ -950,5 +1021,9 @@ export async function fetchCachedPlaylistTracks(playlistId: string): Promise<Spo
     );
   }
 
-  return response.json();
+  const tracks = await response.json() as Array<SpotifyPlaylistTrack & { audioAnalysis?: CachedAudioAnalysis }>;
+  return tracks.map(({ audioAnalysis, ...track }) => ({
+    ...track,
+    audioFeatures: mapCachedAnalysis(audioAnalysis),
+  }));
 }

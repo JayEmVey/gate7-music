@@ -1,5 +1,7 @@
 const PLAYLIST_CACHE_TTL_MS = 5 * 60 * 1000;
 let cachedSpotifyToken;
+const playlistRefreshes = new Map();
+let spotifyRetryAt = 0;
 
 async function getSpotifyAccessToken(env) {
   if (cachedSpotifyToken && cachedSpotifyToken.expiresAt > Date.now() + 60_000) {
@@ -11,6 +13,7 @@ async function getSpotifyAccessToken(env) {
   }
 
   const response = await fetch('https://accounts.spotify.com/api/token', {
+    signal: AbortSignal.timeout(5000),
     method: 'POST',
     headers: {
       Authorization: `Basic ${btoa(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`)}`,
@@ -40,13 +43,30 @@ function playlistResponse(body, cacheStatus = 'MISS', status = 200) {
   return Response.json(body, {
     status,
     headers: {
-      'Cache-Control': 'public, max-age=300',
+      'Cache-Control': status === 200 ? 'public, max-age=60' : 'no-store',
       'X-Cache': cacheStatus
     }
   });
 }
 
+function analysisResponse(body, cacheStatus, status = 200) {
+  return Response.json(body, {
+    status,
+    headers: {
+      'Cache-Control': cacheStatus === 'HIT' ? 'public, max-age=86400' : 'no-store',
+      'Access-Control-Allow-Origin': '*',
+      'X-Cache': cacheStatus
+    }
+  });
+}
+
+async function getCachedAnalysis(trackId, env) {
+  if (!env.ANALYSIS_CACHE) return null;
+  return env.ANALYSIS_CACHE.get(`analysis:v1:${trackId}`, 'json');
+}
+
 async function loadPlaylistTracks(playlistId, env) {
+  if (Date.now() < spotifyRetryAt) throw new Error('Spotify refresh is cooling down');
   const token = await getSpotifyAccessToken(env);
   const tracks = [];
   let offset = 0;
@@ -57,12 +77,13 @@ async function loadPlaylistTracks(playlistId, env) {
     let response;
     for (let attempt = 0; ; attempt += 1) {
       response = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/items?limit=50&offset=${offset}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(5000)
       });
-      if (response.status !== 429 || attempt >= 2) break;
-      const retryAfter = Number(response.headers.get('Retry-After') || 0);
-      const delayMs = Math.min(Math.max(retryAfter || 2 ** attempt, 1), 30) * 1000;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      if (response.status === 429) {
+        spotifyRetryAt = Date.now() + Math.max(1, Number(response.headers.get('Retry-After') || 30)) * 1000;
+      }
+      break;
     }
     if (!response.ok) {
       const error = new Error(`Spotify playlist request failed (${response.status})`);
@@ -94,9 +115,63 @@ async function loadPlaylistTracks(playlistId, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+
+    if (pathname === '/api/analysis/batch') {
+      if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405 });
+      const ids = [...new Set((url.searchParams.get('ids') || '').split(','))];
+      if (ids.length > 100 || ids.some((id) => !/^[A-Za-z0-9]{22}$/.test(id))) {
+        return Response.json({ error: 'Provide 1–100 Spotify track IDs' }, { status: 400 });
+      }
+      const started = Date.now();
+      const requestId = crypto.randomUUID();
+      try {
+        if (!env.ANALYSIS_CACHE) throw new Error('ANALYSIS_CACHE binding missing');
+        const records = await env.ANALYSIS_CACHE.get(ids.map((id) => `analysis:v1:${id}`), { type: 'json', cacheTtl: 60 });
+        const tracks = Object.fromEntries(ids.map((id) => {
+          const analysis = records.get(`analysis:v1:${id}`);
+          return [id, analysis ? { status: 'ready', analysis } : { status: 'missing' }];
+        }));
+        return Response.json({ tracks }, { headers: {
+          'Cache-Control': 'public, max-age=60',
+          'X-Request-ID': requestId,
+          'Server-Timing': `kv;dur=${Date.now() - started}`,
+        } });
+      } catch (error) {
+        console.error('Analysis batch failed', { requestId, error: String(error) });
+        return Response.json({ error: 'Analysis temporarily unavailable', requestId }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '30' } });
+      }
+    }
+
+    // /analyzer belongs to the existing analysis service; this app only reads KV.
+    if (pathname === '/api/analysis') {
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+          }
+        });
+      }
+      if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405 });
+      if (!env.ANALYSIS_CACHE) {
+        return analysisResponse({ error: 'ANALYSIS_CACHE binding is not configured' }, 'ERROR', 500);
+      }
+
+      const trackId = url.searchParams.get('track_id')?.trim() || '';
+      if (!/^[A-Za-z0-9]{22}$/.test(trackId)) {
+        return analysisResponse({ error: 'A valid Spotify track_id is required' }, 'ERROR', 400);
+      }
+
+      const cached = await getCachedAnalysis(trackId, env);
+      return cached
+        ? analysisResponse(cached, 'HIT')
+        : analysisResponse({ error: 'Audio analysis is not cached', track_id: trackId }, 'MISS', 404);
+    }
 
     const playlistMatch = pathname.match(/^\/api\/playlists\/([^/]+)\/tracks$/);
     if (playlistMatch) {
@@ -108,8 +183,17 @@ export default {
       const playlistId = decodeURIComponent(playlistMatch[1]);
       const cacheKey = `playlist:${playlistId}`;
       const cached = await env.SPOTIFY_PLAYLIST_CACHE.get(cacheKey, 'json');
-      if (cached && Date.now() - Number(cached.checkedAt || 0) < PLAYLIST_CACHE_TTL_MS) {
-        return playlistResponse(cached.tracks || [], 'HIT');
+      if (cached?.tracks) {
+        const stale = Date.now() - Number(cached.checkedAt || 0) >= PLAYLIST_CACHE_TTL_MS;
+        if (stale && ctx && !playlistRefreshes.has(playlistId)) {
+          const refresh = loadPlaylistTracks(playlistId, env)
+            .then((record) => env.SPOTIFY_PLAYLIST_CACHE.put(cacheKey, JSON.stringify(record)))
+            .catch((error) => console.error('Playlist background refresh failed', { playlistId, error: String(error) }))
+            .finally(() => playlistRefreshes.delete(playlistId));
+          playlistRefreshes.set(playlistId, refresh);
+          ctx.waitUntil(refresh);
+        }
+        return playlistResponse(cached.tracks, stale ? 'STALE' : 'HIT');
       }
 
       try {
@@ -117,7 +201,6 @@ export default {
         await env.SPOTIFY_PLAYLIST_CACHE.put(cacheKey, JSON.stringify(record));
         return playlistResponse(record.tracks, 'MISS');
       } catch (error) {
-        if (cached?.tracks) return playlistResponse(cached.tracks, 'STALE', 200);
         const response = playlistResponse({ error: error instanceof Error ? error.message : 'Could not load playlist' }, 'ERROR', error.status === 429 ? 429 : 502);
         if (error.status === 429) response.headers.set('Retry-After', error.retryAfter || '30');
         return response;

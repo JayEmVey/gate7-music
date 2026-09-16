@@ -20,16 +20,16 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
   language,
   theme = 'dark',
 }) => {
-  const [showMobileDetails, setShowMobileDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
-    if (!showMobileDetails) return;
+    if (!showDetails) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setShowMobileDetails(false);
+      if (event.key === 'Escape') setShowDetails(false);
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showMobileDetails]);
+  }, [showDetails]);
 
   const tags = ['#V-Indie', '#Lo-fi Chill', '#CoffeeJazz', '#Acoustic', '#DeepWork'];
   const isLight = theme === 'light';
@@ -37,11 +37,11 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
   return (
     <div className="space-y-6">
       <div
-        id="mobile-roastery-details"
+        id="roastery-details"
         role="region"
         aria-label={language === 'vi' ? 'Gate 7 Roastery DNA và hàng đợi yêu cầu tại quán' : 'Gate 7 Roastery DNA and store request queue'}
-        className={`${showMobileDetails ? 'block' : 'hidden'} md:block fixed md:static top-24 bottom-24 left-3 right-16 z-40 overflow-y-auto overscroll-contain md:overflow-visible p-2 md:p-0 space-y-6 border-2 md:border-0 border-[#FEBC11] shadow-brutal md:shadow-none ${
-          isLight ? 'bg-white md:bg-transparent' : 'bg-[#151518] md:bg-transparent'
+        className={`${showDetails ? 'block' : 'hidden'} fixed top-24 bottom-24 left-3 right-16 sm:left-auto sm:right-20 sm:w-[28rem] z-40 overflow-y-auto overscroll-contain p-2 space-y-6 border-2 border-[#FEBC11] shadow-brutal ${
+          isLight ? 'bg-white' : 'bg-[#151518]'
         }`}
       >
         {/* Gate 7 Roastery DNA Card */}
@@ -242,16 +242,16 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
 
       <button
         type="button"
-        onClick={() => setShowMobileDetails((visible) => !visible)}
-        aria-expanded={showMobileDetails}
-        aria-controls="mobile-roastery-details"
+        onClick={() => setShowDetails((visible) => !visible)}
+        aria-expanded={showDetails}
+        aria-controls="roastery-details"
         aria-label={language === 'vi'
-          ? `${showMobileDetails ? 'Ẩn' : 'Hiện'} Roastery DNA và hàng đợi yêu cầu tại quán`
-          : `${showMobileDetails ? 'Hide' : 'Show'} Roastery DNA and store request queue`}
+          ? `${showDetails ? 'Ẩn' : 'Hiện'} Roastery DNA và hàng đợi yêu cầu tại quán`
+          : `${showDetails ? 'Hide' : 'Show'} Roastery DNA and store request queue`}
         title={language === 'vi' ? 'Roastery DNA & hàng đợi tại quán' : 'Roastery DNA & store queue'}
-        className="md:hidden fixed top-1/2 right-3 -translate-y-1/2 z-40 w-11 h-11 flex items-center justify-center bg-[#FEBC11] text-black border-2 border-black shadow-brutal cursor-pointer active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FEBC11]"
+        className="fixed top-1/2 right-3 -translate-y-1/2 z-40 w-11 h-11 flex items-center justify-center bg-[#FEBC11] text-black border-2 border-black shadow-brutal cursor-pointer active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FEBC11]"
       >
-        <i className={`fa-solid ${showMobileDetails ? 'fa-xmark' : 'fa-mug-hot'} text-lg`} aria-hidden="true" />
+        <i className={`fa-solid ${showDetails ? 'fa-xmark' : 'fa-mug-hot'} text-lg`} aria-hidden="true" />
       </button>
 
       {/* Gu Âm Nhạc & Tâm Trạng Tags */}
@@ -324,4 +324,3 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
     </div>
   );
 };
-

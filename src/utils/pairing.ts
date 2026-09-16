@@ -20,6 +20,17 @@ export function getCoffeePairing(
 
   const { energy, tempo, acousticness, instrumentalness, valence, danceability, liveness, loudness, mode } = features;
 
+  // ANALYSIS_CACHE currently stores BPM, energy and musical key. Avoid treating
+  // unavailable Spotify dimensions as real zeroes; pair from the cached signals.
+  if (features.availableFeatures?.includes('energy') && features.availableFeatures.includes('tempo')) {
+    if (energy >= 0.80) return tempo >= 120 && mode === 1 ? 'Orange Espresso (Iced)' : 'Espresso (Hot/Iced)';
+    if (energy >= 0.65) return tempo >= 118 ? 'Mango Passion Fruit Juice' : 'Americano (Hot/Iced)';
+    if (energy >= 0.50) return tempo >= 105 ? 'Espresso with Milk (Hot/Iced)' : 'Mocha (Hot/Iced)';
+    if (energy >= 0.35) return mode === 0 ? 'Chocolate (Hot/Iced)' : 'Latte (Hot/Iced)';
+    if (energy >= 0.20) return tempo < 88 ? 'Drip Drop Coffee (Hot/Iced)' : 'Drip Drop Fresh Milk Coffee (Hot/Iced)';
+    return tempo < 82 ? 'Jasmine Olong Milk Tea' : tempo < 105 ? 'Houjicha Latte' : 'Matcha Latte';
+  }
+
   // ─── Authoritative worker path (RapidAPI audio features) ─────────────────
   // Slightly tighter thresholds because worker data is more reliable.
   if (source === 'worker') {

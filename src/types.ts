@@ -9,6 +9,7 @@ export interface TrackAudioFeatures {
   mode: number;
   tempo: number;
   valence: number;
+  availableFeatures?: Array<'energy' | 'tempo' | 'key' | 'mode'>;
 }
 
 export interface Track {

@@ -19,6 +19,7 @@ import {
   getSpotifyUserToken,
   refreshSpotifyUserToken,
   fetchCachedPlaylistTracks,
+  enrichSpotifyPlaylistTracksWithAudioFeatures,
   fetchSpotifySearchTracks,
   fetchSpotifyTrackAudioFeatures,
   fetchSpotifyAlbum,
@@ -83,7 +84,7 @@ function toAppTrack(track: any, fallbackCover = '', previousTrack?: Track): Trac
     releaseDate: track.album?.release_date || track.releaseDate || previousTrack?.releaseDate,
     duration: track.duration || `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}`,
     durationSec,
-    coffeePairing: track.coffeePairing || 'Drip Drop Coffee',
+    coffeePairing: track.coffeePairing || previousTrack?.coffeePairing,
     genre: track.genre || 'Spotify Web Playback',
     coverUrl: track.album?.images?.[0]?.url || track.coverUrl || fallbackCover,
     audioFeatures: track.audioFeatures || (previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'worker' ? previousTrack.audioFeatures : undefined),
@@ -102,6 +103,7 @@ function spotifyPlaylistTrackToAppTrack(track: {
   releaseDate?: string;
   durationSec: number;
   coverUrl: string;
+  audioFeatures?: Track['audioFeatures'];
 }): Track {
   return {
     id: `spotify-${track.id}`,
@@ -115,8 +117,9 @@ function spotifyPlaylistTrackToAppTrack(track: {
     releaseDate: track.releaseDate,
     duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
     durationSec: track.durationSec,
-    coffeePairing: 'Drip Drop Coffee',
     coverUrl: track.coverUrl,
+    audioFeatures: track.audioFeatures,
+    audioFeaturesSource: track.audioFeatures ? 'worker' : undefined,
   };
 }
 
@@ -1124,12 +1127,15 @@ export default function App() {
   };
 
   const loadPlaylistTracks = async (playlist: Playlist) => {
-    if (!playlist.spotifyId || loadedPlaylistIdsRef.current.has(playlist.id)) {
+    setSelectedPlaylistForModal({ ...playlist, loadError: undefined });
+    if (!playlist.spotifyId) {
       setSelectedPlaylistForModal(playlist);
       return;
     }
 
-    const cacheKey = `gate7_playlist_tracks:${playlist.spotifyId}`;
+    // Versioned to discard older cached tracks that carried a fabricated
+    // "Drip Drop Coffee" fallback for every Spotify song.
+    const cacheKey = `gate7_playlist_tracks:v4:${playlist.spotifyId}`;
     let tracks = playlistTrackCacheRef.current.get(playlist.id);
     if (!tracks) {
       try {
@@ -1144,8 +1150,8 @@ export default function App() {
       if (!tracks) {
         let request = playlistTrackRequestsRef.current.get(playlist.id);
         if (!request) {
-          request = fetchCachedPlaylistTracks(playlist.spotifyId).then((spotifyTracks) =>
-            spotifyTracks.map(spotifyPlaylistTrackToAppTrack));
+          request = fetchCachedPlaylistTracks(playlist.spotifyId)
+            .then((spotifyTracks) => spotifyTracks.map(spotifyPlaylistTrackToAppTrack));
           playlistTrackRequestsRef.current.set(playlist.id, request);
         }
         try {
@@ -1153,9 +1159,34 @@ export default function App() {
         } finally {
           playlistTrackRequestsRef.current.delete(playlist.id);
         }
-        playlistTrackCacheRef.current.set(playlist.id, tracks);
-        sessionStorage.setItem(cacheKey, JSON.stringify(tracks));
       }
+
+      const readyPlaylist = { ...playlist, tracks, loadError: undefined, trackCount: tracks.length };
+      setSelectedPlaylistForModal((selected) => selected?.id === playlist.id ? readyPlaylist : selected);
+      playlistTrackCacheRef.current.set(playlist.id, tracks);
+      const tracksNeedingAnalysis = tracks.filter((track) => track.spotifyId && !track.audioFeatures);
+      if (tracksNeedingAnalysis.length > 0) {
+        const enrichedTracks = await enrichSpotifyPlaylistTracksWithAudioFeatures(
+          tracks.map((track) => ({
+            id: track.spotifyId || track.id,
+            title: track.title,
+            artist: track.artist,
+            artistId: track.artistId,
+            album: track.album || '',
+            albumId: track.albumId,
+            albumType: track.albumType,
+            releaseDate: track.releaseDate,
+            durationSec: track.durationSec,
+            coverUrl: track.coverUrl || '',
+            spotifyUri: `spotify:track:${track.spotifyId || track.id}`,
+            audioFeatures: track.audioFeatures,
+          })),
+        );
+        tracks = enrichedTracks.map(spotifyPlaylistTrackToAppTrack);
+      }
+
+      playlistTrackCacheRef.current.set(playlist.id, tracks);
+      try { sessionStorage.setItem(cacheKey, JSON.stringify(tracks)); } catch { /* Storage is optional. */ }
 
       loadedPlaylistIdsRef.current.add(playlist.id);
       const updatedPlaylist = {
@@ -1173,13 +1204,13 @@ export default function App() {
         })),
         activePlaylistIdRef.current,
       ));
-      setSelectedPlaylistForModal(updatedPlaylist);
+      setSelectedPlaylistForModal((selected) => selected?.id === playlist.id ? updatedPlaylist : selected);
     } catch (error) {
       console.warn('Could not load Spotify playlist tracks:', error);
-      setSelectedPlaylistForModal({
+      setSelectedPlaylistForModal((selected) => selected?.id === playlist.id ? {
         ...playlist,
         loadError: error instanceof Error ? error.message : 'Spotify could not load this playlist.',
-      });
+      } : selected);
     }
   };
 
@@ -1268,10 +1299,9 @@ export default function App() {
           />
         </div>
 
-        {/* 2-Column Grid: 8 Cols Playlists (or search results) / 4 Cols Philosophy & Requests Queue */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Playlists Shelves, replaced by search results while search is active */}
-          <div className="lg:col-span-8">
+        {/* Playlists and the current time slot use the full content width. */}
+        <div className="space-y-8">
+          <div>
             {isSearchActive ? (
               <SearchResultsPanel
                 query={searchQuery}
@@ -1307,8 +1337,7 @@ export default function App() {
             )}
           </div>
 
-          {/* Right Column: DNA & Live Request Queue */}
-          <div className="lg:col-span-4">
+          <div>
             <SidebarRight
               requestQueue={requestQueue}
               onRequestClick={() => setIsRequestModalOpen(true)}
@@ -1426,7 +1455,7 @@ export default function App() {
         playlist={selectedPlaylistForModal}
         isOpen={!!selectedPlaylistForModal}
         onClose={() => setSelectedPlaylistForModal(null)}
-        currentTrackId={currentTrack.id}
+        currentTrack={currentTrack}
         isPlaying={isPlaying}
         onPlayTrack={(track, pl) => handlePlaySpecificTrack(track, pl)}
         onRetry={() => {
