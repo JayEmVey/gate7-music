@@ -76,12 +76,15 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
   const recommendedDrink = getCoffeePairing(
     currentTrack.audioFeatures,
     // Fallback must match a real COFFEE_PAIRINGS drink name so the card lookup
-    // always succeeds. 'Drip Drop Milk Coffee (Hot/Iced)' is the default.
-    'Drip Drop Milk Coffee (Hot/Iced)',
+    // always succeeds. Vietnamese Milk Coffee is the default.
+    'Vietnamese Milk Coffee',
     language,
     currentTrack.audioFeaturesSource,
   );
   const recommendedPairing = COFFEE_PAIRINGS.find((item) => item.drink === recommendedDrink);
+  const recommendedDrinkLabel = language === 'vi'
+    ? (recommendedPairing?.drinkVi ?? recommendedDrink)
+    : recommendedDrink;
   // True "no features" state — getCoffeePairing returns the i18n "unavailable" string
   const hasNoFeatures = !currentTrack.audioFeatures;
 
@@ -164,7 +167,7 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
               {language === 'vi' ? 'Đề xuất cho bạn' : 'Recommended for you'}
             </span>
           </div>
-          <div className={`mt-2 text-lg font-black uppercase ${isLight ? 'text-black' : 'text-white'}`}>{hasNoFeatures ? (language === 'vi' ? 'Chưa có dữ liệu âm thanh' : 'Audio features unavailable') : recommendedDrink}</div>
+          <div className={`mt-2 text-lg font-black uppercase ${isLight ? 'text-black' : 'text-white'}`}>{hasNoFeatures ? (language === 'vi' ? 'Chưa có dữ liệu âm thanh' : 'Audio features unavailable') : recommendedDrinkLabel}</div>
           <div className="mt-1 text-xs font-bold text-[#FEBC11]">
             {recommendedPairing
               ? language === 'vi'
@@ -328,7 +331,7 @@ export const PairingGuideModal: React.FC<PairingGuideModalProps> = ({
                               <span className={`text-xs font-black group-hover:text-[#FEBC11] transition-colors leading-tight ${
                                 isLight ? 'text-black' : 'text-white'
                               }`}>
-                                {item.drink}
+                                {language === 'vi' ? (item.drinkVi ?? item.drink) : item.drink}
                               </span>
                               <i
                                 className="fa-solid fa-fire-flame-curved text-xs shrink-0 mt-0.5"

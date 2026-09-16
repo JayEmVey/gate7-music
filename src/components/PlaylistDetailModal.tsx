@@ -1,6 +1,6 @@
 import React from 'react';
 import { Playlist, Track, Language, Theme } from '../types';
-import { DEFAULT_TRACK_COVER, getTrackCover } from '../data';
+import { COFFEE_PAIRINGS, DEFAULT_TRACK_COVER, getTrackCover } from '../data';
 import { SpotifyItemTarget } from './SpotifyChooserModal';
 import { useModalBehavior } from './useModalBehavior';
 import { getCoffeePairing } from '../utils/pairing';
@@ -150,6 +150,8 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
             const pairing = pairingTrack.audioFeatures
               ? getCoffeePairing(pairingTrack.audioFeatures, '', language, pairingTrack.audioFeaturesSource)
               : track.coffeePairing;
+            const pairingData = COFFEE_PAIRINGS.find((item) => item.drink === pairing);
+            const pairingLabel = language === 'vi' ? (pairingData?.drinkVi ?? pairing) : pairing;
 
             return (
               <div
@@ -200,7 +202,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
                 {/* Pairing Note */}
                 <div className={`hidden sm:flex items-center gap-1 text-[11px] font-bold ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
                   <i className="fa-solid fa-mug-hot text-[#FEBC11] text-[10px]"></i>
-                  <span>{pairing || (language === 'vi' ? 'Phân tích khi phát' : 'Analyze when played')}</span>
+                  <span>{pairingLabel || (language === 'vi' ? 'Phân tích khi phát' : 'Analyze when played')}</span>
                 </div>
 
                 {/* Duration & Play Action */}

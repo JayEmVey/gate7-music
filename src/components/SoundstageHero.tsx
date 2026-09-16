@@ -1,7 +1,7 @@
 import React from 'react';
 import { Track, TrackAudioFeatures, Language } from '../types';
 import { SonicPairingG7Icon } from './SonicPairingG7Icon';
-import { getTrackCover } from '../data';
+import { COFFEE_PAIRINGS, getTrackCover } from '../data';
 import { getCoffeePairing } from '../utils/pairing';
 
 interface SoundstageHeroProps {
@@ -49,7 +49,11 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
     return language === 'vi' ? 'Cân bằng' : 'Balanced Mood';
   };
 
-  const coffeePairing = getCoffeePairing(audioFeatures, 'Drip Drop Coffee', language, currentTrack.audioFeaturesSource);
+  const coffeePairing = getCoffeePairing(audioFeatures, 'Vietnamese Black Coffee', language, currentTrack.audioFeaturesSource);
+  const coffeePairingData = COFFEE_PAIRINGS.find((item) => item.drink === coffeePairing);
+  const coffeePairingLabel = language === 'vi'
+    ? (coffeePairingData?.drinkVi ?? coffeePairing)
+    : coffeePairing;
 
   React.useEffect(() => {
     const updateDateTime = () => {
@@ -338,7 +342,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
                 title="Nhấp để xem ghi chú hương vị cà phê và âm nhạc"
               >
                 <i className="fa-solid fa-mug-hot text-[#FEBC11]"></i>{' '}
-                {language === 'vi' ? 'Hợp nhất với:' : 'Best with:'} {coffeePairing}
+                {language === 'vi' ? 'Hợp nhất với:' : 'Best with:'} {coffeePairingLabel}
               </button>
             </div>
           </div>
@@ -437,7 +441,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
               {language === 'vi' ? 'Khuyên dùng hôm nay' : "Today's pairing"}
             </span>
             <span className={`text-xs font-black ${isLight ? 'text-black' : 'text-[#FEBC11]'}`}>
-              {coffeePairing} ✦ {currentTrack.genre}
+              {coffeePairingLabel} ✦ {currentTrack.genre}
             </span>
           </div>
 
@@ -457,4 +461,3 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
     </section>
   );
 };
-

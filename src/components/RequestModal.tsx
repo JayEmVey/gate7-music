@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { RequestTicket, Language, Theme } from '../types';
 import { useModalBehavior } from './useModalBehavior';
+import { getMenuDrinkName, MENU } from '../menu';
 
 interface RequestModalProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
   const [songTitle, setSongTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [tableLocation, setTableLocation] = useState('Bàn 07 • Tầng 1');
-  const [drink, setDrink] = useState('Cà phê Muối');
+  const [drink, setDrink] = useState('vietnamese-milk-coffee');
   const [note, setNote] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -45,7 +46,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
     onSubmitRequest({
       songTitle: songTitle.trim(),
       artist: artist.trim() || 'Nghệ sĩ Indie',
-      tableLocation: `${tableLocation} • ${drink}`,
+      tableLocation: `${tableLocation} • ${getMenuDrinkName(drink, language)}`,
       note: note.trim(),
     });
 
@@ -212,12 +213,13 @@ export const RequestModal: React.FC<RequestModalProps> = ({
                   onChange={(e) => setDrink(e.target.value)}
                   className={fieldClass}
                 >
-                  <option value="Cà phê Muối">Cà phê Muối Gate 7</option>
-                  <option value="Pour-over Ethiopia">Pour-over V60 Ethiopia</option>
-                  <option value="Cold Brew Cam Vàng">Cold Brew Cam Vàng</option>
-                  <option value="Bạc Xỉu 3 Tầng">Bạc Xỉu 3 Tầng</option>
-                  <option value="Latte Hạnh Nhân">Latte Hạnh Nhân</option>
-                  <option value="Americano Đá">Americano Đá Đậm Vị</option>
+                  {MENU.categories.map((category) => (
+                    <optgroup key={category.id} label={category.name[language]}>
+                      {category.items.map((item) => (
+                        <option key={item.id} value={item.id}>{item.name[language]}</option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
               </div>
             </div>

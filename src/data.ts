@@ -1,5 +1,6 @@
 import { TimeSlot, Track, RequestTicket } from './types';
 import bossaNovaCover from './assets/images/bossa_nova_cover_1788508105737.jpg';
+import { getMenuItem } from './menu';
 
 export const DEFAULT_TRACK_COVER = bossaNovaCover;
 
@@ -393,10 +394,10 @@ export const INITIAL_REQUESTS: RequestTicket[] = [
 // same `bestGenre` string are rendered together in the PairingGuideModal.
 // Each entry carries both English and Vietnamese copy.
 
-export const COFFEE_PAIRINGS = [
+const SONIC_PAIRINGS = [
   // ── Category 1: High Energy / Fast Tempo ──────────────────────────────────
   {
-    drink: 'Espresso (Hot/Iced)',
+    menuItemId: 'espresso',
     bestGenre: 'High Energy / Fast Tempo',
     bestGenreVi: 'Năng lượng cao / Nhịp nhanh',
     description: 'Intense, sharp, and purely focused. High-energy tracks with a fast beat match the kick of 100% Vietnamese Arabica.',
@@ -405,7 +406,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Năng lượng > 0.80', 'Tempo > 120', 'Tập trung'],
   },
   {
-    drink: 'Orange Espresso (Iced)',
+    menuItemId: 'orange-espresso',
     bestGenre: 'High Energy / Fast Tempo',
     bestGenreVi: 'Năng lượng cao / Nhịp nhanh',
     description: 'Bold espresso meets fresh orange — bright, punchy, and alive. Uplifting major-key tracks with fast tempo mirror the citrus kick.',
@@ -414,7 +415,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Độ tươi > 0.70', 'Giọng trưởng', 'Tempo > 110'],
   },
   {
-    drink: 'Americano (Hot/Iced)',
+    menuItemId: 'americano',
     bestGenre: 'High Energy / Fast Tempo',
     bestGenreVi: 'Năng lượng cao / Nhịp nhanh',
     description: 'Clean, direct, no fuss. Post-rock or driving instrumental tracks match the clarity and focused energy of a straight Americano.',
@@ -425,7 +426,7 @@ export const COFFEE_PAIRINGS = [
 
   // ── Category 2: Acoustic / Grounded Energy ────────────────────────────────
   {
-    drink: 'Drip Drop Coffee (Hot/Iced)',
+    menuItemId: 'vietnamese-black-coffee',
     bestGenre: 'Acoustic / Grounded Energy',
     bestGenreVi: 'Acoustic / Năng lượng mộc mạc',
     description: 'Pure, unfussy, just coffee. Raw fingerpicked acoustic or slow folk — nothing layered, nothing rushed.',
@@ -434,7 +435,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Độ acoustic > 0.75', 'Tempo < 90', 'Mộc mạc'],
   },
   {
-    drink: 'Drip Drop Milk Coffee (Hot/Iced)',
+    menuItemId: 'vietnamese-milk-coffee',
     bestGenre: 'Acoustic / Grounded Energy',
     bestGenreVi: 'Acoustic / Năng lượng mộc mạc',
     description: 'Traditional, strong but comforting. Organic instruments and a steady energy echo the slow-drip phin and sweet condensed milk.',
@@ -443,7 +444,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Độ acoustic > 0.60', 'Năng lượng 0.50–0.75', 'Ấm áp'],
   },
   {
-    drink: 'Drip Drop Fresh Milk Coffee (Hot/Iced)',
+    menuItemId: 'bac-xiu',
     bestGenre: 'Acoustic / Grounded Energy',
     bestGenreVi: 'Acoustic / Năng lượng mộc mạc',
     description: 'Light, creamy Bạc Xỉu. Breezy acoustic tracks with gentle energy mirror the freshness of milk over slow-drip Robusta.',
@@ -454,7 +455,7 @@ export const COFFEE_PAIRINGS = [
 
   // ── Category 3: Warm Soul / Mid Tempo ─────────────────────────────────────
   {
-    drink: 'Espresso with Milk (Hot/Iced)',
+    menuItemId: 'milk-espresso',
     bestGenre: 'Warm Soul / Mid Tempo',
     bestGenreVi: 'Soul ấm áp / Nhịp trung',
     description: 'Espresso softened by milk — intensity mellowed into smoothness. Warm jazz or mid-tempo R&B fits perfectly.',
@@ -463,7 +464,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Năng lượng 0.55–0.75', 'Tempo 90–115', 'Mượt mà'],
   },
   {
-    drink: 'Cappuccino (Hot/Iced)',
+    menuItemId: 'cappuccino',
     bestGenre: 'Warm Soul / Mid Tempo',
     bestGenreVi: 'Soul ấm áp / Nhịp trung',
     description: 'Balanced foam and espresso — classic coffeehouse warmth. Soul or classic acoustic with a steady, welcoming tempo.',
@@ -472,7 +473,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Độ tươi 0.50–0.70', 'Acoustic 0.40–0.65', 'Cổ điển'],
   },
   {
-    drink: 'Latte (Hot/Iced)',
+    menuItemId: 'latte',
     bestGenre: 'Warm Soul / Mid Tempo',
     bestGenreVi: 'Soul ấm áp / Nhịp trung',
     description: 'Softened, milky, unhurried. Neo-soul or smooth R&B with gentle groove keep the latte energy exactly right.',
@@ -483,7 +484,7 @@ export const COFFEE_PAIRINGS = [
 
   // ── Category 4: Deep Chocolate Groove ────────────────────────────────────
   {
-    drink: 'Mocha (Hot/Iced)',
+    menuItemId: 'mocha',
     bestGenre: 'Deep Chocolate Groove',
     bestGenreVi: 'Groove chocolate trầm sâu',
     description: 'Espresso and chocolate — rich, dark, soulful. Deep groove tracks with a heavy low end bring out every layer of mocha.',
@@ -492,7 +493,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Năng lượng 0.55–0.75', 'Độ to > -8 dB', 'Đầy hồn'],
   },
   {
-    drink: 'Chocolate (Hot/Iced)',
+    menuItemId: 'chocolate',
     bestGenre: 'Deep Chocolate Groove',
     bestGenreVi: 'Groove chocolate trầm sâu',
     description: 'Pure comfort in a cup. Warm piano ballads or orchestral pop wrap around the comforting depth of pure chocolate.',
@@ -501,7 +502,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Độ tươi 0.45–0.70', 'Acoustic > 0.40', 'Ấm lòng'],
   },
   {
-    drink: 'Oreo Ice Blended',
+    menuItemId: 'oreo-ice-blended',
     bestGenre: 'Deep Chocolate Groove',
     bestGenreVi: 'Groove chocolate trầm sâu',
     description: 'Indulgent, rich, and fun. Punchy, highly produced tracks suit the chocolatey, cookie-filled treat-yourself mood.',
@@ -512,7 +513,7 @@ export const COFFEE_PAIRINGS = [
 
   // ── Category 5: Bright / Tropical Groove ──────────────────────────────────
   {
-    drink: 'Mango Passion Fruit Smoothie',
+    menuItemId: 'mango-passion-fruit-smoothie',
     bestGenre: 'Bright / Tropical Groove',
     bestGenreVi: 'Groove nhiệt đới / Tươi sáng',
     description: 'Bright, tropical, tangy, and refreshing. Euphoric, cheerful tracks with an irresistible groove mirror ripe mango and zesty passion fruit.',
@@ -521,7 +522,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Độ tươi > 0.75', 'Khả năng nhảy > 0.70', 'Sảng khoái'],
   },
   {
-    drink: 'Orange Mango Peach Smoothie',
+    menuItemId: 'orange-mango-peach-smoothie',
     bestGenre: 'Bright / Tropical Groove',
     bestGenreVi: 'Groove nhiệt đới / Tươi sáng',
     description: 'Triple-fruit explosion of sweetness and zest. Afrobeats or high-energy sunny groove match this vibrant blend perfectly.',
@@ -530,7 +531,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Độ tươi > 0.75', 'Năng lượng > 0.65', 'Rực rỡ'],
   },
   {
-    drink: 'Orange Peach Cold Drip',
+    menuItemId: 'orange-peach-cold-drip',
     bestGenre: 'Bright / Tropical Groove',
     bestGenreVi: 'Groove nhiệt đới / Tươi sáng',
     description: 'Cold drip smoothness layered with fruit brightness. Chill melodic tracks with a refreshing lift echo the sweet-citrus finish.',
@@ -539,18 +540,18 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Năng lượng 0.35–0.55', 'Độ tươi > 0.60', 'Chill giai điệu'],
   },
   {
-    drink: 'Mango Passion Fruit Juice',
+    menuItemId: 'fresh-orange-juice',
     bestGenre: 'Bright / Tropical Groove',
     bestGenreVi: 'Groove nhiệt đới / Tươi sáng',
-    description: 'Pure fruit, nothing added. Clean fresh pop with genuine uplift — no overdone production, just natural brightness.',
-    descriptionVi: 'Trái cây nguyên chất, không thêm gì. Pop tươi trong trẻo với sự thăng hoa chân thực — không sản xuất thái quá, chỉ là sự tươi sáng tự nhiên.',
+    description: 'Fresh orange with a clean sweet-tart lift. Bright pop with genuine energy mirrors its natural citrus sparkle.',
+    descriptionVi: 'Cam tươi với vị chua ngọt trong trẻo. Pop tươi sáng và giàu năng lượng phản chiếu nét lấp lánh tự nhiên của hương cam.',
     tags: ['Valence > 0.70', 'Energy 0.55–0.75', 'Pure'],
     tagsVi: ['Độ tươi > 0.70', 'Năng lượng 0.55–0.75', 'Thuần khiết'],
   },
 
   // ── Category 6: Instrumental / Zen Flow ───────────────────────────────────
   {
-    drink: 'Matcha Latte',
+    menuItemId: 'matcha-latte',
     bestGenre: 'Instrumental / Zen Flow',
     bestGenreVi: 'Không lời / Zen Flow',
     description: 'Earthy, pure, zen, and balanced. Instrumental low-energy tracks create the grounded flow state of a smooth matcha latte.',
@@ -559,7 +560,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Không lời > 0.60', 'Năng lượng < 0.50', 'Zen'],
   },
   {
-    drink: 'Matcha Coco (Hot/Iced)',
+    menuItemId: 'coconut-matcha-latte',
     bestGenre: 'Instrumental / Zen Flow',
     bestGenreVi: 'Không lời / Zen Flow',
     description: 'Matcha meets coconut water — tropical and light. Ambient grooves with gentle texture suit this breezy tropical zen.',
@@ -568,7 +569,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Năng lượng < 0.55', 'Độ tươi > 0.60', 'Zen nhiệt đới'],
   },
   {
-    drink: 'Matcha Macchiato',
+    menuItemId: 'matcha-macchiato',
     bestGenre: 'Instrumental / Zen Flow',
     bestGenreVi: 'Không lời / Zen Flow',
     description: 'Bold matcha with milk contrast — zen but present. Focused instrumental tracks in a minor key hold the right tension.',
@@ -577,7 +578,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Không lời > 0.50', 'Năng lượng 0.35–0.55', 'Zen tập trung'],
   },
   {
-    drink: 'Houjicha Latte',
+    menuItemId: 'houjicha-latte',
     bestGenre: 'Instrumental / Zen Flow',
     bestGenreVi: 'Không lời / Zen Flow',
     description: 'Roasted, nutty, deeply grounded. Earthy acoustic folk with warm mid frequencies brings out the toasted depth of houjicha.',
@@ -586,7 +587,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Acoustic > 0.65', 'Năng lượng < 0.50', 'Mộc mạc'],
   },
   {
-    drink: 'Houjicha Macchiato',
+    menuItemId: 'houjicha-macchiato',
     bestGenre: 'Instrumental / Zen Flow',
     bestGenreVi: 'Không lời / Zen Flow',
     description: 'Bold nutty houjicha with a creamy contrast layer. Indie folk in a minor key captures this warm, layered complexity.',
@@ -597,7 +598,7 @@ export const COFFEE_PAIRINGS = [
 
   // ── Category 7: Cinematic Pop / Layered ───────────────────────────────────
   {
-    drink: 'Iced Salt Caramel Macchiato',
+    menuItemId: 'salted-caramel-macchiato',
     bestGenre: 'Cinematic Pop / Layered',
     bestGenreVi: 'Pop điện ảnh / Nhiều tầng lớp',
     description: 'Sweet and salty in beautiful contrast — elegantly layered. Cinematic pop with multi-layered production mirrors every sip.',
@@ -606,7 +607,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Năng lượng 0.55–0.75', 'Độ tươi > 0.60', 'Điện ảnh'],
   },
   {
-    drink: 'Salted Foam Macchiato',
+    menuItemId: 'nau-macchiato',
     bestGenre: 'Cinematic Pop / Layered',
     bestGenreVi: 'Pop điện ảnh / Nhiều tầng lớp',
     description: 'Silky salted foam over bold phin — minimal yet memorable. Atmospheric indie with dynamic tension between light and dark.',
@@ -615,7 +616,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Năng lượng 0.45–0.65', 'Không lời > 0.30', 'Khí quyển'],
   },
   {
-    drink: 'Blueberry Ice Blended',
+    menuItemId: 'blueberry-ice-blended',
     bestGenre: 'Cinematic Pop / Layered',
     bestGenreVi: 'Pop điện ảnh / Nhiều tầng lớp',
     description: 'Cool, smooth, fruity, and mysterious. Chill electronic with a subtle night vibe suits the deep purple, icy smoothness.',
@@ -626,7 +627,7 @@ export const COFFEE_PAIRINGS = [
 
   // ── Category 8: Floral / Delicate Acoustic ────────────────────────────────
   {
-    drink: 'Jasmine Olong Milk Tea',
+    menuItemId: 'jasmine-oolong-milk-tea',
     bestGenre: 'Floral / Delicate Acoustic',
     bestGenreVi: 'Acoustic hoa nhẹ / Tinh tế',
     description: 'Velvety, delicate, and simple. Soft acoustic tracks keep the energy gentle around smooth milk and floral jasmine notes.',
@@ -635,7 +636,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Năng lượng < 0.40', 'Acoustic > 0.70', 'Tinh tế'],
   },
   {
-    drink: 'Macchiato Jasmin Olong Tea',
+    menuItemId: 'jasmine-oolong-macchiato',
     bestGenre: 'Floral / Delicate Acoustic',
     bestGenreVi: 'Acoustic hoa nhẹ / Tinh tế',
     description: 'Graceful and layered — creamy foam atop fragrant jasmine oolong. Major-key tracks with live room texture feel just right.',
@@ -644,7 +645,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Giọng trưởng', 'Độ live > 0.30', 'Duyên dáng'],
   },
   {
-    drink: 'Lychee Tea',
+    menuItemId: 'lychee-tea',
     bestGenre: 'Floral / Delicate Acoustic',
     bestGenreVi: 'Acoustic hoa nhẹ / Tinh tế',
     description: 'Exotic, floral, lightly sweet lychee. Dream pop or ethereal indie with soft acoustic textures matches this fragrant brew.',
@@ -655,7 +656,7 @@ export const COFFEE_PAIRINGS = [
 
   // ── Category 9: Tropical / Vibrant Groove ────────────────────────────────
   {
-    drink: 'Passion Fruit Tea',
+    menuItemId: 'passion-fruit-tea',
     bestGenre: 'Tropical / Vibrant Groove',
     bestGenreVi: 'Groove nhiệt đới / Sôi động',
     description: 'Vibrant, lively, and citrusy. World music or tropical upbeat tracks with danceable energy match the bold passion fruit punch.',
@@ -664,7 +665,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Độ tươi > 0.70', 'Khả năng nhảy > 0.65', 'Rực rỡ'],
   },
   {
-    drink: 'Peach Orange Tea',
+    menuItemId: 'orange-peach-tea',
     bestGenre: 'Tropical / Vibrant Groove',
     bestGenreVi: 'Groove nhiệt đới / Sôi động',
     description: 'Sweet peach meets zesty orange — bright and optimistic. Indie pop in a major key with uplifting energy fits this sunny blend.',
@@ -673,7 +674,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Độ tươi > 0.65', 'Giọng trưởng', 'Indie nắng ấm'],
   },
   {
-    drink: 'Passion Fruit Juice',
+    menuItemId: 'passion-fruit',
     bestGenre: 'Tropical / Vibrant Groove',
     bestGenreVi: 'Groove nhiệt đới / Sôi động',
     description: 'Pure passion fruit punch — unfiltered tropical energy. Danceable groove tracks with high energy match the bold, tangy burst.',
@@ -684,7 +685,7 @@ export const COFFEE_PAIRINGS = [
 
   // ── Category 10: Gentle Acoustic / Sweet Clarity ─────────────────────────
   {
-    drink: 'Salted Plum Tea',
+    menuItemId: 'salted-plum-tea',
     bestGenre: 'Gentle Acoustic / Sweet Clarity',
     bestGenreVi: 'Acoustic nhẹ / Trong sáng',
     description: 'Crisp tea with gentle tartness — introspective and calming. Wabi-sabi acoustic with thoughtful, understated arrangements.',
@@ -693,7 +694,7 @@ export const COFFEE_PAIRINGS = [
     tagsVi: ['Acoustic > 0.60', 'Độ tươi 0.30–0.55', 'Nội tâm'],
   },
   {
-    drink: 'Honey Lemon Juice',
+    menuItemId: 'honey-lemon',
     bestGenre: 'Gentle Acoustic / Sweet Clarity',
     bestGenreVi: 'Acoustic nhẹ / Trong sáng',
     description: 'Sweet lemon balanced by warm honey — clear and honest. Gentle acoustic tracks with warm tones and simple clarity.',
@@ -701,4 +702,17 @@ export const COFFEE_PAIRINGS = [
     tags: ['Acousticness > 0.60', 'Valence > 0.60', 'Warm Clarity'],
     tagsVi: ['Acoustic > 0.60', 'Độ tươi > 0.60', 'Trong sáng ấm'],
   },
-];
+] as const;
+
+// Pairing metadata owns the sonic profile; menu.json owns every customer-facing
+// drink name and menu description. Stable IDs keep rules intact when copy changes.
+export const COFFEE_PAIRINGS = SONIC_PAIRINGS.map((pairing) => {
+  const menuItem = getMenuItem(pairing.menuItemId);
+  return {
+    ...pairing,
+    drink: menuItem.name.en,
+    drinkVi: menuItem.name.vi,
+    menuDescription: menuItem.description.en,
+    menuDescriptionVi: menuItem.description.vi,
+  };
+});

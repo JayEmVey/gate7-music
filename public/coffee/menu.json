@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "source": "menu.md",
+  "categories": [
+    {
+      "id": "phin-coffee",
+      "name": { "vi": "Cà Phê Pha Phin", "en": "Phin Coffee" },
+      "items": [
+        {
+          "id": "vietnamese-black-coffee",
+          "name": { "vi": "Cà phê đen pha phin", "en": "Vietnamese Black Coffee" },
+          "description": { "vi": "100% hạt Robusta", "en": "100% Robusta coffee beans" }
+        },
+        {
+          "id": "vietnamese-milk-coffee",
+          "name": { "vi": "Cà phê sữa pha phin", "en": "Vietnamese Milk Coffee" },
+          "description": { "vi": "100% hạt Robusta với sữa đặc, truyền thống Việt Nam, hoàn hảo", "en": "100% Robusta with condensed milk, a perfect Vietnamese classic" }
+        },
+        {
+          "id": "bac-xiu",
+          "name": { "vi": "Bạc Xỉu", "en": "Bạc Xỉu" },
+          "description": { "vi": "100% hạt Robusta với sữa tươi, nhẹ, kem, Bạc 'ngon' Xỉu", "en": "100% Robusta with fresh milk, light, creamy, and smooth" }
+        },
+        {
+          "id": "nau-macchiato",
+          "name": { "vi": "Nâu Macchiato", "en": "Nâu Macchiato" },
+          "description": { "vi": "Bọt muối mềm mượt gặp cà phê Phin đậm đà, tối giản, nhưng đáng nhớ", "en": "Silky salted foam meets bold Phin coffee — simple, yet memorable" }
+        }
+      ]
+    },
+    {
+      "id": "espresso-coffee",
+      "name": { "vi": "Cà Phê Espresso", "en": "Espresso Coffee" },
+      "items": [
+        {
+          "id": "espresso",
+          "name": { "vi": "Espresso", "en": "Espresso" },
+          "description": { "vi": "Espresso được chế tác từ 100% Arabica Việt Nam", "en": "Espresso crafted from 100% Vietnamese Arabica" }
+        },
+        {
+          "id": "milk-espresso",
+          "name": { "vi": "Espresso Sữa", "en": "Milk Espresso" },
+          "description": { "vi": "Cà phê espresso đậm đà hòa quyện cùng sữa, tạo vị béo ngậy, cân bằng và thơm mịn", "en": "Bold espresso blended with milk for a rich, balanced, and smooth taste" }
+        },
+        {
+          "id": "orange-espresso",
+          "name": { "vi": "Espresso Cam", "en": "Orange Espresso" },
+          "description": { "vi": "Cà phê espresso đậm đà kết hợp nước cam tươi, tạo vị chua ngọt tươi mát và hậu vị cà phê hài hòa", "en": "Bold espresso with fresh orange juice, delivering a refreshing sweet-tart taste and balanced coffee finish" }
+        },
+        {
+          "id": "americano",
+          "name": { "vi": "Americano", "en": "Americano" },
+          "description": { "vi": "Americano được chế tác từ 100% Arabica Việt Nam", "en": "Americano crafted from 100% Vietnamese Arabica" }
+        },
+        {
+          "id": "cappuccino",
+          "name": { "vi": "Cappuccino", "en": "Cappuccino" },
+          "description": { "vi": "Arabica Việt Nam nguyên chất gặp sữa tươi lành mạnh, Cappuccino hoàn hảo", "en": "Pure Vietnamese Arabica meets fresh milk for a perfectly balanced Cappuccino" }
+        },
+        {
+          "id": "latte",
+          "name": { "vi": "Latte", "en": "Latte" },
+          "description": { "vi": "Espresso đậm được làm mềm bằng sữa tươi lành mạnh, Latte tinh khiết", "en": "Bold espresso softened with fresh milk for a smooth, pure Latte" }
+        },
+        {
+          "id": "mocha",
+          "name": { "vi": "Mocha", "en": "Mocha" },
+          "description": { "vi": "Espresso và sô cô la, được làm mềm bằng sữa kem, đơn giản là Mocha", "en": "Espresso and chocolate softened with creamy milk — simply Mocha" }
+        },
+        {
+          "id": "salted-caramel-macchiato",
+          "name": { "vi": "Macchiato sốt caramel muối", "en": "Salted Caramel Macchiato" },
+          "description": { "vi": "Espresso mịn kết hợp sữa kem và một chút caramel muối", "en": "Smooth espresso with creamy milk and a touch of salted caramel" }
+        },
+        {
+          "id": "orange-peach-cold-drip",
+          "name": { "vi": "Cold Drip Cam Đào", "en": "Orange Peach Cold Drip" },
+          "description": { "vi": "Cà phê Cold Drip êm mượt, hòa quyện cùng vị cam tươi mát và hương đào ngọt dịu", "en": "Smooth cold drip coffee with refreshing orange and sweet peach notes" }
+        }
+      ]
+    },
+    {
+      "id": "matcha-houjicha-chocolate",
+      "name": { "vi": "Matcha, Houjicha & Sô Cô La", "en": "Matcha, Houjicha & Chocolate" },
+      "items": [
+        {
+          "id": "coconut-matcha-latte",
+          "name": { "vi": "Latte Matcha", "en": "Coconut Matcha Latte" },
+          "description": { "vi": "Matcha xanh thơm dịu hòa quyện cùng nước dừa béo nhẹ, tạo vị thanh mát và tươi mới", "en": "Fragrant green matcha blended with creamy coconut water for a light and refreshing taste" }
+        },
+        {
+          "id": "matcha-latte",
+          "name": { "vi": "Latte Matcha", "en": "Matcha Latte" },
+          "description": { "vi": "Matcha mịn, kết hợp sữa tươi, vị tinh khiết và cân bằng", "en": "Smooth matcha with fresh milk, pure and balanced" }
+        },
+        {
+          "id": "matcha-macchiato",
+          "name": { "vi": "Matcha Macchiato", "en": "Matcha Macchiato" },
+          "description": { "vi": "Matcha đậm vị kết hợp sữa, vị đơn giản cân bằng", "en": "Rich matcha with milk, simple and balanced" }
+        },
+        {
+          "id": "houjicha-latte",
+          "name": { "vi": "Houjicha Latte", "en": "Houjicha Latte" },
+          "description": { "vi": "Houjicha kết hợp sữa mịn, mượt như nhung", "en": "Roasted Houjicha with smooth, velvety milk" }
+        },
+        {
+          "id": "houjicha-macchiato",
+          "name": { "vi": "Houjicha Macchiato", "en": "Houjicha Macchiato" },
+          "description": { "vi": "Houjicha đậm vị kết hợp với lớp sữa mịn, vị đơn giản cân bằng", "en": "Rich Houjicha topped with smooth milk, simple and balanced" }
+        },
+        {
+          "id": "chocolate",
+          "name": { "vi": "Sô Cô La", "en": "Chocolate" },
+          "description": { "vi": "Sô cô la: tinh khiết, thoải mái, và cân bằng hoàn hảo", "en": "Pure, comforting chocolate with a perfectly balanced taste" }
+        }
+      ]
+    },
+    {
+      "id": "tea-milk-tea",
+      "name": { "vi": "Trà & Trà Sữa", "en": "Tea & Milk Tea" },
+      "items": [
+        {
+          "id": "jasmine-oolong-macchiato",
+          "name": { "vi": "Trà Oolong Lài Macchiato", "en": "Jasmine Oolong Macchiato" },
+          "description": { "vi": "Bọt kem mịn trên trà oolong lài thơm, vị cân bằng và thanh", "en": "Silky cream foam over fragrant jasmine oolong tea, light and balanced" }
+        },
+        {
+          "id": "passion-fruit-tea",
+          "name": { "vi": "Trà Chanh Dây", "en": "Passion Fruit Tea" },
+          "description": { "vi": "Trà tươi mát với chanh dây, vị thanh", "en": "Refreshing tea with passion fruit, light and crisp" }
+        },
+        {
+          "id": "salted-plum-tea",
+          "name": { "vi": "Trà Xí Muôi", "en": "Salted Plum Tea" },
+          "description": { "vi": "Trà với vị chua nhẹ của xí muội, đơn giản cân bằng", "en": "Refreshing tea with a subtle tartness from salted plum, simple and balanced" }
+        },
+        {
+          "id": "jasmine-oolong-milk-tea",
+          "name": { "vi": "Trà Sữa Oolong Lài", "en": "Jasmine Oolong Milk Tea" },
+          "description": { "vi": "Sữa nhung gặp oolong lài tinh tế, đơn giản cân bằng", "en": "Velvety milk meets delicate jasmine oolong, simple and balanced" }
+        },
+        {
+          "id": "orange-peach-tea",
+          "name": { "vi": "Trà Cam Đào", "en": "Orange Peach Tea" },
+          "description": { "vi": "Trà trái cây tươi mát kết hợp vị ngọt của đào và chua nhẹ của cam, sảng khoái và thơm dịu", "en": "Refreshing fruit tea with sweet peach and a hint of citrusy orange, fragrant and refreshing" }
+        },
+        {
+          "id": "lychee-tea",
+          "name": { "vi": "Trà Vải", "en": "Lychee Tea" },
+          "description": { "vi": "Trà thanh mát hòa quyện hương trái vải ngọt dịu, thơm nhẹ và sảng khoái", "en": "Refreshing tea with delicately sweet lychee, lightly fragrant and refreshing" }
+        }
+      ]
+    },
+    {
+      "id": "smoothies",
+      "name": { "vi": "Sinh Tố", "en": "Smoothies" },
+      "items": [
+        {
+          "id": "mango-passion-fruit-smoothie",
+          "name": { "vi": "Smoothie Xoài Chanh Dây", "en": "Mango Passion Fruit Smoothie" },
+          "description": { "vi": "Sinh tố mát lạnh hòa quyện vị ngọt của xoài chín và chua nhẹ của chanh dây, tươi mát và sảng khoái", "en": "A refreshing smoothie blending sweet ripe mango with the gentle tartness of passion fruit" }
+        },
+        {
+          "id": "orange-mango-peach-smoothie",
+          "name": { "vi": "Smoothie Cam Xoài Đào", "en": "Orange Mango Peach Smoothie" },
+          "description": { "vi": "Sinh tố mát lạnh kết hợp vị cam tươi, xoài ngọt và đào thơm, hài hòa, sảng khoái và giàu hương trái cây", "en": "A refreshing blend of fresh orange, sweet mango, and fragrant peach, balanced and fruity" }
+        }
+      ]
+    },
+    {
+      "id": "ice-blended",
+      "name": { "vi": "Đá Xay", "en": "Freezer / Ice Blended" },
+      "items": [
+        {
+          "id": "oreo-ice-blended",
+          "name": { "vi": "Oreo Đá Xay", "en": "Oreo Ice Blended" },
+          "description": { "vi": "Thức uống đá xay béo mịn kết hợp bánh Oreo giòn vụn, vị socola ngọt thơm và mát lạnh", "en": "A creamy ice-blended drink with crunchy Oreo pieces and a sweet chocolatey taste" }
+        },
+        {
+          "id": "blueberry-ice-blended",
+          "name": { "vi": "Việt Quất Đá Xay", "en": "Blueberry Ice Blended" },
+          "description": { "vi": "Thức uống đá xay mát lạnh từ việt quất ngọt dịu, thơm trái cây và sảng khoái", "en": "A refreshing ice-blended drink with sweet blueberries and a bright fruity aroma" }
+        }
+      ]
+    },
+    {
+      "id": "fruit-drinks",
+      "name": { "vi": "Thức Uống Trái Cây", "en": "Fruit Drinks" },
+      "items": [
+        {
+          "id": "fresh-orange-juice",
+          "name": { "vi": "Cam Vắt", "en": "Fresh Orange Juice" },
+          "description": { "vi": "Nước cam tươi mát với vị chua ngọt tự nhiên, giàu vitamin và sảng khoái", "en": "Fresh orange juice with a naturally sweet-tart taste, refreshing and vitamin-rich" }
+        },
+        {
+          "id": "honey-lemon",
+          "name": { "vi": "Chanh Mật Ong", "en": "Honey Lemon" },
+          "description": { "vi": "Nước chanh tươi hòa cùng mật ong tự nhiên, vị chua ngọt thanh mát và dễ uống", "en": "Fresh lemon with natural honey, lightly sweet, tangy, and refreshing" }
+        },
+        {
+          "id": "passion-fruit",
+          "name": { "vi": "Chanh Dây", "en": "Passion Fruit" },
+          "description": { "vi": "Nước ép chanh dây tươi mát với vị chua ngọt đặc trưng, thơm và sảng khoái", "en": "Refreshing passion fruit juice with its signature sweet-tart taste and tropical aroma" }
+        }
+      ]
+    }
+  ]
+}
