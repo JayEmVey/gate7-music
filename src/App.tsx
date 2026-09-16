@@ -571,7 +571,12 @@ export default function App() {
 
   useEffect(() => {
     const trackId = currentTrack.spotifyId;
-    if (!trackId) return;
+    if (!trackId) {
+      setIsAudioFeaturesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
 
     setIsAudioFeaturesLoading(true);
     if (currentTrack.audioFeaturesSource !== 'worker') {
@@ -583,16 +588,17 @@ export default function App() {
     }
 
     fetchSpotifyTrackAudioFeatures(trackId).then((audioFeatures) => {
-      if (!audioFeatures) return;
+      if (cancelled || !audioFeatures) return;
       setCurrentTrack((prev) => prev.spotifyId === trackId
         ? { ...prev, audioFeatures, audioFeaturesSource: 'worker' }
         : prev);
     }).finally(() => {
-      setCurrentTrack((prev) => {
-        if (prev.spotifyId === trackId) setIsAudioFeaturesLoading(false);
-        return prev;
-      });
+      if (!cancelled) setIsAudioFeaturesLoading(false);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentTrack.spotifyId]);
 
   useEffect(() => {

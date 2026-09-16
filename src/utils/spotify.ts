@@ -501,16 +501,37 @@ export async function fetchSpotifyRecommendationsBySonicCategory(
 async function fetchSpotifyTrackAudioFeaturesUncached(trackId: string): Promise<SpotifyTrackAudioFeatures | null> {
   if (!trackId || !AUDIO_ANALYZER_URL) return null;
 
-  try {
-    const analyzerUrl = new URL(AUDIO_ANALYZER_URL, window.location.origin);
-    analyzerUrl.searchParams.set('track_id', trackId);
-    const response = await fetch(analyzerUrl, { signal: AbortSignal.timeout(5000) });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return mapCachedAnalysis(data) ?? null;
-  } catch (error) {
-    return null;
+  const analyzerUrl = new URL(AUDIO_ANALYZER_URL, window.location.origin);
+  analyzerUrl.searchParams.set('track_id', trackId);
+
+  // The analyzer and its KV cache can briefly be unavailable while a track is
+  // changing or a worker is starting. Retry those transient states here so the
+  // UI does not require a full-page refresh to discover the cached result.
+  const retryDelaysMs = [0, 750, 1_500];
+  for (let attempt = 0; attempt < retryDelaysMs.length; attempt += 1) {
+    if (retryDelaysMs[attempt] > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, retryDelaysMs[attempt]));
+    }
+
+    try {
+      const response = await fetch(analyzerUrl, { signal: AbortSignal.timeout(8_000) });
+      if (response.ok) {
+        const data = await response.json();
+        return mapCachedAnalysis(data) ?? null;
+      }
+
+      const isTransient = response.status === 404
+        || response.status === 408
+        || response.status === 425
+        || response.status === 429
+        || response.status >= 500;
+      if (!isTransient) return null;
+    } catch {
+      // A timeout or temporary network failure is retried below.
+    }
   }
+
+  return null;
 }
 
 export function fetchSpotifyTrackAudioFeatures(trackId: string): Promise<SpotifyTrackAudioFeatures | null> {
