@@ -152,14 +152,24 @@ is the literal loopback IP above. The same value is provided in `.env.example` a
 `VITE_SPOTIFY_REDIRECT_URI`; copy it into `.env.local` if you need a different
 callback URL.
 
-### 5.5 RapidAPI audio features
+### 5.5 Audio analysis
 
-Spotify audio features are retrieved through Musicae's RapidAPI replacement.
-Set `VITE_RAPIDAPI_KEY` in `.env.local` for local development, or provide it as
-a deployment secret. The app sends the Spotify track ID to
-`spotify-extended-audio-features-api.p.rapidapi.com/v1/audio-features/{trackId}`
-and uses the returned energy, tempo, acousticness, instrumentalness, valence,
-danceability, liveness, mode, and loudness metrics for sonic pairing.
+The browser requests `/api/analysis?track_id=<Spotify ID>`. The app Worker reads
+`analysis:v1:<ID>` from `ANALYSIS_CACHE`. On a miss it calls the
+`gate7-music-essentia` Worker using the `AUDIO_ANALYZER` service binding in
+`wrangler.jsonc`, validates the result, and writes it to KV with a 30-day TTL.
+Both Workers use the same KV namespace. Deploy the app Worker with Wrangler to
+apply the service binding; a frontend-only deployment cannot enable this path.
+
+The browser allows 120 seconds for the request (the service timeout is 110
+seconds) to accommodate the analyzer backend's cold start. Concurrent browser
+callers share one request; failures are not automatically retried. Playlist
+batch lookups remain cache-only to avoid generating analysis for entire lists.
+A KV write failure returns the usable analysis with `X-Cache: WRITE-ERROR` and
+logs the failure. Concurrent requests from separate clients can still generate
+the same track before KV becomes visible; there is no global generation lock.
+
+Run regression tests with `node --test tests/*.test.js`.
 
 ### 5.6 Spotify playback and playlists
 

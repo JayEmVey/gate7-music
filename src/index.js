@@ -60,6 +60,12 @@ function analysisResponse(body, cacheStatus, status = 200) {
   });
 }
 
+function isValidAnalysis(data, trackId) {
+  return data?.track_id === trackId && !data.error
+    && Number.isFinite(data.bpm) && data.bpm >= 0
+    && Number.isFinite(data.energy) && data.energy >= 0;
+}
+
 async function getCachedAnalysis(trackId, env) {
   if (!env.ANALYSIS_CACHE) return null;
   return env.ANALYSIS_CACHE.get(`analysis:v1:${trackId}`, 'json');
@@ -145,7 +151,7 @@ export default {
       }
     }
 
-    // /analyzer belongs to the existing analysis service; this app only reads KV.
+    // Resolve cache misses through the analyzer service binding.
     if (pathname === '/api/analysis') {
       if (request.method === 'OPTIONS') {
         return new Response(null, {
@@ -167,10 +173,44 @@ export default {
         return analysisResponse({ error: 'A valid Spotify track_id is required' }, 'ERROR', 400);
       }
 
-      const cached = await getCachedAnalysis(trackId, env);
-      return cached
-        ? analysisResponse(cached, 'HIT')
-        : analysisResponse({ error: 'Audio analysis is not cached', track_id: trackId }, 'MISS', 404);
+      try {
+        const cached = await getCachedAnalysis(trackId, env);
+        if (isValidAnalysis(cached, trackId)) return analysisResponse(cached, 'HIT');
+        if (!env.AUDIO_ANALYZER) {
+          return analysisResponse({ error: 'AUDIO_ANALYZER service binding is not configured' }, 'ERROR', 503);
+        }
+
+        const analyzerUrl = new URL('/analyzer', request.url);
+        analyzerUrl.searchParams.set('track_id', trackId);
+        const upstream = await env.AUDIO_ANALYZER.fetch(new Request(analyzerUrl, {
+          signal: AbortSignal.timeout(110_000),
+        }));
+        if (upstream.status !== 200) {
+          const status = upstream.ok ? 502 : upstream.status;
+          const response = analysisResponse({ error: 'Audio analyzer could not produce analysis', track_id: trackId }, 'ERROR', status);
+          const retryAfter = upstream.headers.get('Retry-After');
+          if (retryAfter) response.headers.set('Retry-After', retryAfter);
+          return response;
+        }
+        const data = await upstream.json();
+        if (!isValidAnalysis(data, trackId)) {
+          return analysisResponse({ error: 'Audio analyzer returned invalid analysis', track_id: trackId }, 'ERROR', 502);
+        }
+        // Persist before returning, rather than depending on the analyzer's background write.
+        const { cache: _cache, ...analysis } = data;
+        try {
+          await env.ANALYSIS_CACHE.put(`analysis:v1:${trackId}`, JSON.stringify(analysis), {
+            expirationTtl: 60 * 60 * 24 * 30,
+          });
+        } catch (error) {
+          console.error('Analysis cache write failed', { trackId, error: String(error) });
+          return analysisResponse(analysis, 'WRITE-ERROR');
+        }
+        return analysisResponse(analysis, 'MISS');
+      } catch (error) {
+        console.error('Analysis lookup failed', { trackId, error: String(error) });
+        return analysisResponse({ error: 'Audio analysis temporarily unavailable', track_id: trackId }, 'ERROR', error.name === 'TimeoutError' ? 504 : 502);
+      }
     }
 
     const playlistMatch = pathname.match(/^\/api\/playlists\/([^/]+)\/tracks$/);
