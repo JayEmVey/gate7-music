@@ -4,6 +4,8 @@ import { RequestTicket, Language } from '../types';
 interface SidebarRightProps {
   requestQueue: RequestTicket[];
   onRequestClick: () => void;
+  onSearchClick: () => void;
+  onSpotifyClick: () => void;
   activeFilterTag: string | null;
   onToggleFilterTag: (tag: string) => void;
   onDNAFeatureClick: (featureTitle: string) => void;
@@ -14,6 +16,8 @@ interface SidebarRightProps {
 export const SidebarRight: React.FC<SidebarRightProps> = ({
   requestQueue,
   onRequestClick,
+  onSearchClick,
+  onSpotifyClick,
   activeFilterTag,
   onToggleFilterTag,
   onDNAFeatureClick,
@@ -240,19 +244,42 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
 
       </div>
 
-      <button
-        type="button"
-        onClick={() => setShowDetails((visible) => !visible)}
-        aria-expanded={showDetails}
-        aria-controls="roastery-details"
-        aria-label={language === 'vi'
-          ? `${showDetails ? 'Ẩn' : 'Hiện'} Roastery DNA và hàng đợi yêu cầu tại quán`
-          : `${showDetails ? 'Hide' : 'Show'} Roastery DNA and store request queue`}
-        title={language === 'vi' ? 'Roastery DNA & hàng đợi tại quán' : 'Roastery DNA & store queue'}
-        className="fixed top-1/2 right-3 -translate-y-1/2 z-40 w-11 h-11 flex items-center justify-center bg-[#FEBC11] text-black border-2 border-black shadow-brutal cursor-pointer active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FEBC11]"
-      >
-        <i className={`fa-solid ${showDetails ? 'fa-xmark' : 'fa-mug-hot'} text-lg`} aria-hidden="true" />
-      </button>
+      <div className="fixed top-1/2 right-3 -translate-y-[22px] z-40 flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={onSearchClick}
+          className="md:hidden w-11 h-11 items-center justify-center bg-[#FEBC11] hover:bg-yellow-400 text-black border-2 border-black shadow-brutal cursor-pointer hover:scale-105 active:scale-95 transition-transform focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FEBC11] flex"
+          title={language === 'vi' ? 'Tìm kiếm' : 'Search'}
+          aria-label={language === 'vi' ? 'Mở tìm kiếm' : 'Open search'}
+        >
+          <i className="fa-solid fa-magnifying-glass text-base" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowDetails((visible) => !visible)}
+          aria-expanded={showDetails}
+          aria-controls="roastery-details"
+          aria-label={language === 'vi'
+            ? `${showDetails ? 'Ẩn' : 'Hiện'} Roastery DNA và hàng đợi yêu cầu tại quán`
+            : `${showDetails ? 'Hide' : 'Show'} Roastery DNA and store request queue`}
+          title={language === 'vi' ? 'Roastery DNA & hàng đợi tại quán' : 'Roastery DNA & store queue'}
+          className="w-11 h-11 flex items-center justify-center bg-[#FEBC11] text-black border-2 border-black shadow-brutal cursor-pointer active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#FEBC11]"
+        >
+          <i className={`fa-solid ${showDetails ? 'fa-xmark' : 'fa-mug-hot'} text-lg`} aria-hidden="true" />
+        </button>
+
+        <button
+          id="hero-spotify-open-btn"
+          type="button"
+          onClick={onSpotifyClick}
+          className="w-11 h-11 flex items-center justify-center bg-[#1DB954] hover:bg-[#1ed760] text-black border-2 border-black shadow-brutal cursor-pointer hover:scale-105 active:scale-95 transition-transform focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1DB954]"
+          title={language === 'vi' ? 'Mở bài hát trên Spotify' : 'Open song in Spotify'}
+          aria-label={language === 'vi' ? 'Mở bài hát trên Spotify' : 'Open song in Spotify'}
+        >
+          <i className="fa-brands fa-spotify text-lg" aria-hidden="true" />
+        </button>
+      </div>
 
       {/* Gu Âm Nhạc & Tâm Trạng Tags */}
       <div

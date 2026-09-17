@@ -864,6 +864,12 @@ export function startSpotifyPlayback(deviceId?: string, body?: Record<string, un
   return controlSpotifyPlayback(withDeviceId('/me/player/play', deviceId), 'PUT', body);
 }
 
+export function addSpotifyTrackToQueue(trackUri: string, deviceId?: string): Promise<boolean> {
+  const params = new URLSearchParams({ uri: trackUri });
+  if (deviceId) params.set('device_id', deviceId);
+  return controlSpotifyPlayback(`/me/player/queue?${params.toString()}`, 'POST');
+}
+
 export function pauseSpotifyPlayback(deviceId?: string): Promise<boolean> {
   return controlSpotifyPlayback(withDeviceId('/me/player/pause', deviceId), 'PUT');
 }

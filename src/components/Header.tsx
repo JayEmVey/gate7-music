@@ -141,14 +141,14 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Search stays on its own row on mobile. */}
+          {/* Desktop search. Mobile search lives in the right-side context controls. */}
           <form
             role="search"
             onSubmit={(event) => {
               event.preventDefault();
               onSearchSubmit();
             }}
-            className="order-last w-full md:order-none md:w-auto md:flex-1 md:max-w-xl flex items-center gap-2"
+            className="hidden md:flex md:order-none md:w-auto md:flex-1 md:max-w-xl items-center gap-2"
           >
             <div className="relative min-w-0 flex-1">
               <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${isLight ? 'text-gray-600' : 'text-gray-400'}`} />
@@ -254,34 +254,9 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
 
-            {/* Gate 7 Sonic Flavor Pairings Interactive Badge — hidden on mobile */}
-            <button
-              id="header-booth-badge"
-              onClick={onBoothClick}
-              className={`hidden sm:flex items-center gap-2 px-2.5 py-1 border-2 border-black shadow-brutal active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer group ${
-                isLight ? 'bg-white hover:bg-gray-50' : 'bg-[#1F1F24] hover:bg-[#282830] border-[#FEBC11]'
-              }`}
-              title={language === 'vi' ? 'Khám phá Gate 7 Sonic Flavor Pairings (Hòa âm & Vị giác)' : 'Explore Gate 7 Sonic Flavor Pairings'}
-            >
-              <SonicPairingG7Icon size="sm" showRipples={true} showSteam={true} />
-              <div className="hidden lg:flex flex-col text-left leading-tight">
-                <span
-                  className={`text-[11px] font-black uppercase tracking-wider ${
-                    isLight ? 'text-black group-hover:text-amber-800' : 'text-white group-hover:text-[#FEBC11]'
-                  }`}
-                >
-                  SONIC PAIRINGS
-                </span>
-                <span className={`text-[9px] font-extrabold flex items-center gap-1 ${isLight ? 'text-gray-700' : 'text-[#FEBC11]'}`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  {language === 'vi' ? 'Thử Nghiệm' : 'Trial Mode'}
-                </span>
-              </div>
-            </button>
           </div>
         </div>
       </header>
     </>
   );
 };
-

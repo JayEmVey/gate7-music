@@ -12,6 +12,10 @@ interface SearchResultsPanelProps {
   onClear: () => void;
   onSearch: (query: string) => void;
   onPlayTrack: (track: Track) => void;
+  onClose?: () => void;
+  autoFocus?: boolean;
+  autoFocusDesktopOnly?: boolean;
+  focusRequestKey?: number;
   language: Language;
   theme?: Theme;
 }
@@ -26,15 +30,37 @@ export const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({
   onClear,
   onSearch,
   onPlayTrack,
+  onClose,
+  autoFocus = false,
+  autoFocusDesktopOnly = false,
+  focusRequestKey = 0,
   language,
   theme = 'dark',
 }) => {
   const [searchInput, setSearchInput] = React.useState(query);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
   const isLight = theme === 'light';
 
   React.useEffect(() => {
     setSearchInput(query);
   }, [query]);
+
+  React.useEffect(() => {
+    if (!autoFocus) return;
+    if (autoFocusDesktopOnly && !window.matchMedia('(min-width: 768px)').matches) return;
+
+    const frameId = requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => cancelAnimationFrame(frameId);
+  }, [autoFocus, autoFocusDesktopOnly, focusRequestKey]);
+
+  React.useEffect(() => {
+    if (!onClose) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   return (
     <section
@@ -53,7 +79,7 @@ export const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({
           </span>
           <button
             type="button"
-            onClick={onClear}
+            onClick={onClose ?? onClear}
             className={`shrink-0 w-8 h-8 hover:bg-[#FEBC11] hover:text-[#0D0D0E] border-2 border-[#FEBC11] flex items-center justify-center font-black text-sm transition-all cursor-pointer shadow-brutal ${
               isLight ? 'bg-white text-black' : 'bg-[#222018]'
             }`}
@@ -72,6 +98,7 @@ export const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({
           className="mt-2 flex items-center gap-2"
         >
           <input
+            ref={searchInputRef}
             type="text"
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
@@ -101,7 +128,12 @@ export const SearchResultsPanel: React.FC<SearchResultsPanelProps> = ({
           isLight ? 'bg-amber-50 text-amber-900' : 'bg-amber-950/40 text-amber-100'
         }`}>{error}</p>
       )}
-      {!isLoading && !error && tracks.length === 0 && (
+      {!isLoading && !error && !query.trim() && (
+        <p className={`px-3 py-8 text-center text-sm ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
+          {language === 'vi' ? 'Nhập từ khóa để tìm kiếm.' : 'Enter a keyword to search.'}
+        </p>
+      )}
+      {!isLoading && !error && Boolean(query.trim()) && tracks.length === 0 && (
         <p className={`px-3 py-8 text-center text-sm ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
           {language === 'vi' ? 'Không tìm thấy bài hát phù hợp.' : 'No matching songs found.'}
         </p>

@@ -333,6 +333,51 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
             {formatTime(playbackSec)} / {currentTrack.duration}
           </span>
 
+          
+          <div className="hidden md:flex items-center gap-2 w-28">
+            <button
+              type="button"
+              onClick={onMuteToggle}
+              className={`text-xs cursor-pointer hover:brightness-125 ${volumeIconColor}`}
+              title={volume === 0
+                ? (language === 'vi' ? 'Bật âm thanh' : 'Unmute')
+                : (language === 'vi' ? 'Tắt tiếng' : 'Mute')}
+              aria-label={volume === 0 ? 'Unmute' : 'Mute'}
+            >
+              <i className={`fa-solid ${volumeIconName}`}></i>
+            </button>
+            <div
+              role="slider"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={volume}
+              aria-label={language === 'vi' ? 'Âm lượng' : 'Volume'}
+              tabIndex={0}
+              onPointerDown={handleVolumePointerDown}
+              onPointerMove={handleVolumePointerMove}
+              onPointerUp={handleVolumePointerUp}
+              onPointerCancel={handleVolumePointerUp}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  onChangeVolume(Math.min(100, volume + 5));
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  onChangeVolume(Math.max(0, volume - 5));
+                }
+              }}
+              className={`w-full h-2 overflow-hidden cursor-pointer group border touch-none ${
+                isLight ? 'bg-black/10 border-black/30' : 'bg-[#282830] border-[#3C3C48]'
+              }`}
+              title={`${language === 'vi' ? 'Âm lượng' : 'Volume'}: ${volume}%`}
+            >
+              <div
+                className="bg-[#FEBC11] h-full transition-[width] duration-75 group-hover:brightness-125 pointer-events-none"
+                style={{ width: `${volume}%` }}
+              ></div>
+            </div>
+          </div>
+
           <div className="relative" ref={queuePanelRef}>
             <button
               type="button"
@@ -421,6 +466,7 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
                   </div>
                 </div>
 
+                
                 <div className={`text-[10px] font-black uppercase px-1 pb-2 mb-2 border-b truncate ${
                   isLight ? 'border-black/20 text-black' : 'text-[#FEBC11] border-[#2E2E38]'
                 }`}>
@@ -483,59 +529,6 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={onOpenSpotify}
-            className="hidden md:inline-flex items-center gap-1.5 text-xs font-black bg-[#FEBC11] text-[#0D0D0E] border-2 border-black px-2.5 py-1 shadow-brutal hover:bg-yellow-400 transition-colors cursor-pointer"
-            title={language === 'vi' ? 'Mở bài đang phát trên Spotify' : 'Open currently playing track on Spotify'}
-          >
-            <i className="fa-brands fa-spotify text-sm"></i>
-            <span>SPOTIFY</span>
-          </button>
-
-          <div className="hidden md:flex items-center gap-2 w-28">
-            <button
-              type="button"
-              onClick={onMuteToggle}
-              className={`text-xs cursor-pointer hover:brightness-125 ${volumeIconColor}`}
-              title={volume === 0
-                ? (language === 'vi' ? 'Bật âm thanh' : 'Unmute')
-                : (language === 'vi' ? 'Tắt tiếng' : 'Mute')}
-              aria-label={volume === 0 ? 'Unmute' : 'Mute'}
-            >
-              <i className={`fa-solid ${volumeIconName}`}></i>
-            </button>
-            <div
-              role="slider"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={volume}
-              aria-label={language === 'vi' ? 'Âm lượng' : 'Volume'}
-              tabIndex={0}
-              onPointerDown={handleVolumePointerDown}
-              onPointerMove={handleVolumePointerMove}
-              onPointerUp={handleVolumePointerUp}
-              onPointerCancel={handleVolumePointerUp}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  onChangeVolume(Math.min(100, volume + 5));
-                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  onChangeVolume(Math.max(0, volume - 5));
-                }
-              }}
-              className={`w-full h-2 overflow-hidden cursor-pointer group border touch-none ${
-                isLight ? 'bg-black/10 border-black/30' : 'bg-[#282830] border-[#3C3C48]'
-              }`}
-              title={`${language === 'vi' ? 'Âm lượng' : 'Volume'}: ${volume}%`}
-            >
-              <div
-                className="bg-[#FEBC11] h-full transition-[width] duration-75 group-hover:brightness-125 pointer-events-none"
-                style={{ width: `${volume}%` }}
-              ></div>
-            </div>
-          </div>
         </div>
 
         <button

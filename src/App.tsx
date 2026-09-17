@@ -30,6 +30,7 @@ import {
   fetchSpotifyCurrentUser,
   transferSpotifyPlayback,
   startSpotifyPlayback,
+  addSpotifyTrackToQueue,
   pauseSpotifyPlayback,
   seekSpotifyPlayback,
   skipToNextSpotifyTrack,
@@ -187,8 +188,10 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string>();
+  const [desktopSearchFocusRequest, setDesktopSearchFocusRequest] = useState(0);
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
   const [volume, setVolume] = useState<number>(72);
   const volumeBeforeMuteRef = useRef(72);
@@ -925,11 +928,25 @@ export default function App() {
       seen.add(candidate.spotifyId);
       return true;
     });
-    const uris = [track.spotifyId, ...following.map((candidate) => candidate.spotifyId!)]
-      .map((id) => `spotify:track:${id}`);
-
-    const started = await startPlaybackWithBody({ uris }, track);
+    const selectedTrackUri = `spotify:track:${track.spotifyId}`;
+    const started = await startPlaybackWithBody({ uris: [selectedTrackUri] }, track);
     if (!started) return;
+
+    // A multi-URI play request can start at a different item when Spotify
+    // shuffle is enabled. Start the clicked track alone, then build the queue.
+    void (async () => {
+      try {
+        for (const candidate of following) {
+          const queued = await addSpotifyTrackToQueue(
+            `spotify:track:${candidate.spotifyId!}`,
+            spotifyDeviceIdRef.current || undefined,
+          );
+          if (!queued) break;
+        }
+      } catch (error) {
+        console.warn('Could not build Spotify search queue:', error);
+      }
+    })();
 
     setPlaybackPlaylistId('search-results');
     setPlaybackContextName(`Search: ${query}`);
@@ -1276,7 +1293,10 @@ export default function App() {
         searchQuery={searchQuery}
         setSearchQuery={handleSearchQueryChange}
         onClearSearch={handleClearSearch}
-        onSearchSubmit={() => void handleSearchSubmit()}
+        onSearchSubmit={() => {
+          setDesktopSearchFocusRequest((request) => request + 1);
+          void handleSearchSubmit();
+        }}
         onRequestClick={() => setIsRequestModalOpen(true)}
         onBoothClick={() => setIsPairingModalOpen(true)}
         language={language}
@@ -1293,10 +1313,17 @@ export default function App() {
             currentTrack={currentTrack}
             isPlaying={isPlaying}
             onTogglePlay={handleTogglePlay}
+            onNextTrack={handleNextTrack}
+            onPrevTrack={handlePrevTrack}
+            isLiked={isLiked}
+            onToggleLike={handleToggleLike}
+            shuffleMode={shuffleMode}
+            onToggleShuffle={handleToggleShuffle}
+            repeatMode={repeatMode}
+            onToggleRepeat={handleToggleRepeat}
             playbackSec={playbackSec}
             onSeek={handleSeek}
             onPairingClick={() => setIsPairingModalOpen(true)}
-            onSpotifyClick={() => handleOpenSpotify()}
             spotifyDesktopStatus={spotifyDesktopStatus}
             spotifySource={spotifySource}
             isAudioFeaturesLoading={isAudioFeaturesLoading}
@@ -1317,6 +1344,9 @@ export default function App() {
                 currentTrackId={currentTrack.id}
                 isPlaying={isPlaying}
                 onClear={handleClearSearch}
+                autoFocus
+                autoFocusDesktopOnly
+                focusRequestKey={desktopSearchFocusRequest}
                 onSearch={(query) => void handleSearchSubmit(query)}
                 onPlayTrack={(track) => {
                   void handlePlaySearchTrack(track, searchQuery, searchResults);
@@ -1347,6 +1377,8 @@ export default function App() {
             <SidebarRight
               requestQueue={requestQueue}
               onRequestClick={() => setIsRequestModalOpen(true)}
+              onSearchClick={() => setIsMobileSearchOpen(true)}
+              onSpotifyClick={() => handleOpenSpotify()}
               activeFilterTag={activeFilterTag}
               onToggleFilterTag={handleToggleFilterTag}
               onDNAFeatureClick={handleDNAFeatureClick}
@@ -1505,6 +1537,39 @@ export default function App() {
         language={language}
         theme={theme}
       />
+
+      {/* Mobile search context window */}
+      {isMobileSearchOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 p-3 pt-16 backdrop-blur-sm md:hidden"
+          role="presentation"
+          onClick={() => setIsMobileSearchOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-label={language === 'vi' ? 'Tìm kiếm' : 'Search'}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <SearchResultsPanel
+              query={searchQuery}
+              tracks={searchResults}
+              isLoading={isSearchLoading}
+              error={searchError}
+              currentTrackId={currentTrack.id}
+              isPlaying={isPlaying}
+              onClear={handleClearSearch}
+              onClose={() => setIsMobileSearchOpen(false)}
+              autoFocus
+              onSearch={(query) => void handleSearchSubmit(query)}
+              onPlayTrack={(track) => void handlePlaySearchTrack(track, searchQuery, searchResults)}
+              language={language}
+              theme={theme}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Spotify Chooser Modal (Desktop App or Web Browser) */}
       <SpotifyChooserModal

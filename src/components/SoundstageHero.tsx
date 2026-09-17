@@ -1,5 +1,5 @@
 import React from 'react';
-import { Track, TrackAudioFeatures, Language } from '../types';
+import { Track, TrackAudioFeatures, Language, ShuffleMode, RepeatMode } from '../types';
 import { SonicPairingG7Icon } from './SonicPairingG7Icon';
 import { COFFEE_PAIRINGS, getTrackCover } from '../data';
 import { getCoffeePairing } from '../utils/pairing';
@@ -8,10 +8,17 @@ interface SoundstageHeroProps {
   currentTrack: Track;
   isPlaying: boolean;
   onTogglePlay: () => void;
+  onNextTrack: () => void;
+  onPrevTrack: () => void;
+  isLiked: boolean;
+  onToggleLike: () => void;
+  shuffleMode: ShuffleMode;
+  onToggleShuffle: () => void;
+  repeatMode: RepeatMode;
+  onToggleRepeat: () => void;
   playbackSec: number;
   onSeek: (sec: number) => void;
   onPairingClick: () => void;
-  onSpotifyClick: () => void;
   spotifyDesktopStatus?: string;
   spotifySource?: 'desktop' | 'web';
   isAudioFeaturesLoading?: boolean;
@@ -23,10 +30,17 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   currentTrack,
   isPlaying,
   onTogglePlay,
+  onNextTrack,
+  onPrevTrack,
+  isLiked,
+  onToggleLike,
+  shuffleMode,
+  onToggleShuffle,
+  repeatMode,
+  onToggleRepeat,
   playbackSec,
   onSeek,
   onPairingClick,
-  onSpotifyClick,
   spotifyDesktopStatus,
   spotifySource = 'desktop',
   isAudioFeaturesLoading = false,
@@ -103,6 +117,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   })();
 
   const progressPercent = Math.min(100, (playbackSec / currentTrack.durationSec) * 100);
+  const shuffleActive = shuffleMode !== 'off';
   const handleBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -247,33 +262,7 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
                 }`}
               >
                 {language === 'vi' ? 'KHUNG GIỜ VÀNG 9 AM – 11 AM' : 'GOLDEN HOUR 9 AM – 11 AM'}
-              </span>
-
-              {/* Spotify Playback Source Badge */}
-              <span
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider border border-black shadow-brutal bg-[#1DB954] text-black"
-                title={spotifySource === 'web' ? 'Bài đang phát từ Spotify Web' : 'Bài đang phát từ Spotify Desktop'}
-              >
-                <i className="fa-brands fa-spotify text-xs"></i>
-                <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></span>
-                <span>{spotifySource === 'web' ? 'SPOTIFY WEB' : 'SPOTIFY DESKTOP'}</span>
-              </span>
-
-              {typeof audioFeatures?.loudness === 'number' && (
-                <span
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider border border-black shadow-brutal bg-[#FEBC11] text-black"
-                  title={language === 'vi' ? `Độ lớn ước tính: ${audioFeatures.loudness.toFixed(1)} dB` : `Estimated loudness: ${audioFeatures.loudness.toFixed(1)} dB`}
-                >
-                  <i className="fa-solid fa-volume-high text-[10px]"></i>
-                  <span>{audioFeatures.loudness.toFixed(1)} dB</span>
-                </span>
-              )}
-
-              {spotifyDesktopStatus && (
-                <span className={`text-[11px] font-mono font-bold px-2 py-0.5 border border-black ${isLight ? 'bg-gray-100 text-gray-800' : 'bg-[#1F1F26] text-emerald-400 border-emerald-500/30'}`}>
-                  {spotifyDesktopStatus}
-                </span>
-              )}
+              </span>    
             </div>
 
             <h1
@@ -349,9 +338,34 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
         </div>
 
         {/* Right: Action Controls + Progress Bar */}
-        <div className="flex flex-col items-center lg:items-end gap-3.5 w-full lg:w-80 shrink-0">
-          <div className="flex flex-wrap items-center justify-center lg:justify-end gap-2.5">
-            {/* Toggle Vinyl Play/Pause Button */}
+        <div className="flex flex-col items-center lg:items-end gap-3.5 w-full lg:w-[26rem] shrink-0">
+          <div className="flex flex-wrap items-center justify-center lg:justify-end gap-3">
+            <button
+              type="button"
+              onClick={onToggleShuffle}
+              className={`relative w-8 h-10 inline-flex items-center justify-center text-sm transition-colors cursor-pointer ${
+                shuffleActive ? 'text-[#FEBC11]' : isLight ? 'text-gray-600 hover:text-black' : 'text-gray-400 hover:text-[#FEBC11]'
+              }`}
+              title={shuffleActive
+                ? (language === 'vi' ? 'Tắt phát ngẫu nhiên' : 'Disable shuffle')
+                : (language === 'vi' ? 'Bật phát ngẫu nhiên' : 'Enable shuffle')}
+              aria-pressed={shuffleActive}
+            >
+              <i className="fa-solid fa-shuffle"></i>
+              {shuffleMode === 'smart' && <span className="absolute top-1 right-0.5 w-1.5 h-1.5 rounded-full bg-[#FEBC11]" aria-hidden />}
+            </button>
+
+            <button
+              type="button"
+              onClick={onPrevTrack}
+              className={`w-8 h-10 inline-flex items-center justify-center text-base transition-colors cursor-pointer ${
+                isLight ? 'text-black hover:text-amber-800' : 'text-gray-300 hover:text-[#FEBC11]'
+              }`}
+              title={language === 'vi' ? 'Bài trước' : 'Previous'}
+            >
+              <i className="fa-solid fa-backward-step"></i>
+            </button>
+
             <button
               id="hero-play-btn"
               aria-label={isPlaying ? 'Tạm dừng' : 'Phát'}
@@ -362,13 +376,33 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
             </button>
 
             <button
-              id="hero-spotify-open-btn"
-              onClick={onSpotifyClick}
-              className="px-4 py-3.5 bg-[#1DB954] hover:bg-[#1ed760] text-black text-xs font-black border-2 border-black shadow-brutal hover:scale-105 active:scale-95 transition-all flex items-center gap-2 uppercase tracking-wider cursor-pointer"
+              type="button"
+              onClick={onNextTrack}
+              className={`w-8 h-10 inline-flex items-center justify-center text-base transition-colors cursor-pointer ${
+                isLight ? 'text-black hover:text-amber-800' : 'text-gray-300 hover:text-[#FEBC11]'
+              }`}
+              title={language === 'vi' ? 'Bài kế tiếp' : 'Next'}
             >
-              <i className="fa-brands fa-spotify text-base"></i>
-              <span>{language === 'vi' ? 'Mở Spotify' : 'Open Spotify'}</span>
+              <i className="fa-solid fa-forward-step"></i>
             </button>
+
+            <button
+              type="button"
+              onClick={onToggleRepeat}
+              className={`relative w-8 h-10 inline-flex items-center justify-center text-sm transition-colors cursor-pointer ${
+                repeatMode !== 'off' ? 'text-[#FEBC11]' : isLight ? 'text-gray-600 hover:text-black' : 'text-gray-400 hover:text-[#FEBC11]'
+              }`}
+              title={repeatMode === 'track'
+                ? (language === 'vi' ? 'Lặp một bài' : 'Repeat one')
+                : repeatMode === 'context'
+                  ? (language === 'vi' ? 'Lặp danh sách' : 'Repeat context')
+                  : (language === 'vi' ? 'Bật lặp lại' : 'Enable repeat')}
+              aria-pressed={repeatMode !== 'off'}
+            >
+              <i className="fa-solid fa-repeat"></i>
+              {repeatMode === 'track' && <span className="absolute bottom-0.5 text-[8px] font-black leading-none">1</span>}
+            </button>
+
           </div>
 
           {/* High-Contrast Progress Bar */}

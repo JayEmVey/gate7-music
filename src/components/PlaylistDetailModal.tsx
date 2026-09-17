@@ -90,8 +90,8 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
             <p className={`text-xs sm:text-sm font-medium ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
               {playlist.description}
             </p>
-            {onOpenSpotify && (
-              <div className="pt-2">
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+              {onOpenSpotify && (
                 <button
                   type="button"
                   onClick={() =>
@@ -107,8 +107,20 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
                   <i className="fa-brands fa-spotify text-sm"></i>
                   <span>{language === 'vi' ? 'Mở Playlist trên Spotify' : 'Open Playlist on Spotify'}</span>
                 </button>
-              </div>
-            )}
+              )}
+              <button
+                onClick={() => {
+                  if (playlist.tracks.length > 0) {
+                    onPlayTrack(playlist.tracks[0], playlist);
+                  }
+                  onClose();
+                }}
+                className="px-4 py-2 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] text-xs font-black uppercase tracking-wider border-2 border-black shadow-brutal flex items-center gap-2 cursor-pointer"
+              >
+                <i className="fa-solid fa-play"></i>
+                <span>{language === 'vi' ? 'Phát Toàn Bộ Playlist Này' : 'Play Full Playlist'}</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -253,20 +265,8 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
           isLight ? 'border-gray-200' : 'border-[#2E2E38]'
         }`}>
           <span className={`text-xs font-bold ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
-            {language === 'vi' ? 'Gate 7 Soundstage Specialty Curations' : 'Gate 7 Soundstage Specialty Curations'}
+            {language === 'vi' ? 'Gate 7 Soundstage – Nhạc tuyển đúng gu' : 'Gate 7 Soundstage Specialty Curations'}
           </span>
-          <button
-            onClick={() => {
-              if (playlist.tracks.length > 0) {
-                onPlayTrack(playlist.tracks[0], playlist);
-              }
-              onClose();
-            }}
-            className="px-4 py-2 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] text-xs font-black uppercase tracking-wider border-2 border-black shadow-brutal flex items-center gap-2 cursor-pointer"
-          >
-            <i className="fa-solid fa-play"></i>
-            {language === 'vi' ? 'Phát Toàn Bộ Playlist Này' : 'Play Full Playlist'}
-          </button>
         </div>
       </div>
     </div>
