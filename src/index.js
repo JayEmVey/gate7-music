@@ -92,7 +92,18 @@ async function loadPlaylistTracks(playlistId, env) {
       break;
     }
     if (!response.ok) {
-      const error = new Error(`Spotify playlist request failed (${response.status})`);
+      let spotifyMessage = '';
+      try {
+        const body = await response.json();
+        spotifyMessage = typeof body?.error === 'string'
+          ? body.error
+          : body?.error?.message || '';
+      } catch {
+        // Spotify occasionally returns an empty/non-JSON error response.
+      }
+      const error = new Error(
+        `Spotify playlist request failed (${response.status})${spotifyMessage ? `: ${spotifyMessage}` : ''}`,
+      );
       error.status = response.status;
       error.retryAfter = response.headers.get('Retry-After') || '30';
       throw error;
@@ -241,7 +252,15 @@ export default {
         await env.SPOTIFY_PLAYLIST_CACHE.put(cacheKey, JSON.stringify(record));
         return playlistResponse(record.tracks, 'MISS');
       } catch (error) {
-        const response = playlistResponse({ error: error instanceof Error ? error.message : 'Could not load playlist' }, 'ERROR', error.status === 429 ? 429 : 502);
+        const upstreamStatus = Number(error?.status);
+        const responseStatus = Number.isInteger(upstreamStatus) && upstreamStatus >= 400 && upstreamStatus <= 599
+          ? upstreamStatus
+          : error?.name === 'TimeoutError' ? 504 : 502;
+        const response = playlistResponse(
+          { error: error instanceof Error ? error.message : 'Could not load playlist' },
+          'ERROR',
+          responseStatus,
+        );
         if (error.status === 429) response.headers.set('Retry-After', error.retryAfter || '30');
         return response;
       }

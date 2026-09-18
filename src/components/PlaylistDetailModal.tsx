@@ -4,6 +4,7 @@ import { COFFEE_PAIRINGS, DEFAULT_TRACK_COVER, getTrackCover } from '../data';
 import { SpotifyItemTarget } from './SpotifyChooserModal';
 import { useModalBehavior } from './useModalBehavior';
 import { getCoffeePairing } from '../utils/pairing';
+import { isSameTrack } from '../utils/tracks';
 
 interface PlaylistDetailModalProps {
   playlist: Playlist | null;
@@ -157,7 +158,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
           )}
 
           {playlist.tracks.map((track, idx) => {
-            const isCurrent = track.id === currentTrack.id;
+            const isCurrent = isSameTrack(track, currentTrack);
             const pairingTrack = isCurrent && currentTrack.audioFeatures ? currentTrack : track;
             const pairing = pairingTrack.audioFeatures
               ? getCoffeePairing(pairingTrack.audioFeatures, '', language, pairingTrack.audioFeaturesSource)

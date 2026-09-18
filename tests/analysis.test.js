@@ -77,3 +77,35 @@ test('upstream timeout returns 504', async () => {
   assert.equal((await f.request()).status, 504);
   assert.equal(f.writes.length, 0);
 });
+
+test('playlist endpoint preserves Spotify access and missing statuses', async (t) => {
+  const upstreamStatuses = [403, 404];
+  t.mock.method(globalThis, 'fetch', async (request) => {
+    const url = typeof request === 'string' ? request : request.url;
+    if (url.includes('accounts.spotify.com/api/token')) {
+      return Response.json({ access_token: 'worker-token', expires_in: 3600 });
+    }
+    const status = upstreamStatuses.shift();
+    return Response.json({ error: { message: status === 403 ? 'Forbidden' : 'Not found' } }, { status });
+  });
+
+  const env = {
+    SPOTIFY_CLIENT_ID: 'client-id',
+    SPOTIFY_CLIENT_SECRET: 'client-secret',
+    SPOTIFY_CURATOR_REFRESH_TOKEN: 'refresh-token',
+    SPOTIFY_PLAYLIST_CACHE: {
+      get: async () => null,
+      put: async () => undefined,
+    },
+  };
+
+  for (const status of [403, 404]) {
+    const response = await worker.fetch(
+      new Request(`https://music.gate7.vn/api/playlists/playlist-${status}/tracks`),
+      env,
+    );
+    assert.equal(response.status, status);
+    assert.equal(response.headers.get('X-Cache'), 'ERROR');
+    assert.match((await response.json()).error, new RegExp(`${status}`));
+  }
+});

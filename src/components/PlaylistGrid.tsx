@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { TimeSlot, Playlist, Language } from '../types';
+import { TimeSlot, Playlist, Language, Track } from '../types';
 import { DEFAULT_TRACK_COVER } from '../data';
 import { getCurrentSlotKey } from '../utils/spotify';
+import { playlistContainsTrack } from '../utils/tracks';
 import { SpotifyItemTarget } from './SpotifyChooserModal';
 
 interface PlaylistGridProps {
   timeSlots: TimeSlot[];
   activePlaylistId: string;
+  currentTrack: Track;
   onSelectPlaylist: (playlist: Playlist) => void;
   onViewAllSlot?: (slot: TimeSlot) => void;
   onOpenSpotify?: (target: SpotifyItemTarget) => void;
@@ -19,6 +21,7 @@ interface PlaylistGridProps {
 export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
   timeSlots,
   activePlaylistId,
+  currentTrack,
   onSelectPlaylist,
   onOpenSpotify,
   activeFilterTag,
@@ -38,22 +41,25 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
 
   const currentSlotId = `slot-${getCurrentSlotKey()}`;
 
-  // Auto expand when the active playlist lives outside the clock's current slot;
-  // stay collapsed when it belongs to the current slot (or is unknown).
-  const activePlaylistInCurrentSlot = React.useMemo(
+  // Collapse whenever the song is part of any playlist in the clock's current
+  // slot. The active context is also sufficient while that playlist's tracks
+  // are still loading.
+  const currentTrackInCurrentSlot = React.useMemo(
     () =>
       timeSlots
         .find((slot) => slot.id === currentSlotId)
-        ?.playlists.some((playlist) => playlist.id === activePlaylistId) ?? false,
-    [timeSlots, currentSlotId, activePlaylistId],
+        ?.playlists.some((playlist) =>
+          playlist.id === activePlaylistId || playlistContainsTrack(playlist.tracks, currentTrack),
+        ) ?? false,
+    [timeSlots, currentSlotId, activePlaylistId, currentTrack],
   );
 
   // Re-apply auto rules whenever playback source or clock slot changes.
   React.useEffect(() => {
     setManualShowAll(null);
-  }, [activePlaylistId, currentSlotId]);
+  }, [activePlaylistId, currentTrack.id, currentTrack.spotifyId, currentSlotId]);
 
-  const showAllTimeSlots = manualShowAll ?? !activePlaylistInCurrentSlot;
+  const showAllTimeSlots = manualShowAll ?? !currentTrackInCurrentSlot;
 
   const setShowAllTimeSlots = (next: boolean | ((prev: boolean) => boolean)) => {
     const resolved = typeof next === 'function' ? next(showAllTimeSlots) : next;
@@ -101,7 +107,9 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
     if (manualShowAll !== null) return;
     const inCurrentSlot = timeSlots
       .find((slot) => slot.id === currentSlotId)
-      ?.playlists.some((playlist) => playlist.id === activePlaylistId) ?? false;
+      ?.playlists.some((playlist) =>
+        playlist.id === activePlaylistId || playlistContainsTrack(playlist.tracks, currentTrack),
+      ) ?? false;
     if (inCurrentSlot) return;
 
     const activeSlot = timeSlots.find((slot) =>
@@ -115,7 +123,7 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
     return () => window.clearTimeout(timer);
     // Only re-scroll when the playback playlist or clock slot changes — not on every timeSlots refresh.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlaylistId, currentSlotId]);
+  }, [activePlaylistId, currentTrack.id, currentTrack.spotifyId, currentSlotId]);
 
   return (
     <div className="space-y-10">
@@ -319,4 +327,3 @@ export const PlaylistGrid: React.FC<PlaylistGridProps> = ({
     </div>
   );
 };
-

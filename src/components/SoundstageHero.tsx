@@ -49,6 +49,9 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
 }) => {
   const isLight = theme === 'light';
   const [dateTimeStr, setDateTimeStr] = React.useState<string>('');
+  const [failedArtworkUrl, setFailedArtworkUrl] = React.useState<string | null>(null);
+  const artworkUrl = currentTrack.coverUrl || currentTrack.cover;
+  const hasArtwork = Boolean(artworkUrl && artworkUrl !== failedArtworkUrl);
   const audioFeatures = currentTrack.audioFeatures;
 
   const keyNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
@@ -129,12 +132,34 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
     <section
       id="soundstage-hero-banner"
       aria-label="Đang phát tại quán"
-      className={`relative overflow-hidden p-4 md:p-6 lg:p-8 transition-colors duration-200 ${
+      className={`relative isolate overflow-hidden p-4 md:p-6 lg:p-8 transition-colors duration-200 ${
         isLight
           ? 'bg-white border-3 border-black shadow-[6px_6px_0px_#000000] text-black'
           : 'bg-[#18181C] border-4 border-[#2A2A34] shadow-brutal-xl text-white'
       }`}
     >
+      {/* Decorative artwork stays beneath the translucent surface and controls. */}
+      {hasArtwork && (
+        <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
+          <img
+            key={artworkUrl}
+            src={artworkUrl}
+            alt=""
+            decoding="async"
+            onError={() => setFailedArtworkUrl(artworkUrl!)}
+            className="h-full w-full object-cover object-center"
+          />
+          <div
+            className="absolute inset-0 backdrop-blur-[2px]"
+            style={{
+              background: isLight
+                ? 'linear-gradient(110deg, rgba(255,255,255,0.90) 0%, rgba(255,255,255,0.78) 55%, rgba(255,255,255,0.65) 100%)'
+                : 'linear-gradient(110deg, rgba(18,18,24,0.90) 0%, rgba(18,18,24,0.78) 55%, rgba(18,18,24,0.65) 100%)',
+            }}
+          />
+        </div>
+      )}
+
       {/* Atmospheric Glow in Background */}
       {isLight ? (
         <div className="absolute -right-24 -top-24 w-96 h-96 bg-[#FEBC11]/15 rounded-full blur-3xl pointer-events-none"></div>
@@ -434,8 +459,8 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
         onClick={onPairingClick}
         className={`relative z-10 mt-6 pt-5 border-t-2 border-black flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 border-2 border-black shadow-brutal transition-all cursor-pointer group ${
           isLight
-            ? 'bg-[#FFFDF0] hover:bg-[#FFFBE0]'
-            : 'bg-[#141418] hover:bg-[#1A1A20] border-[#2E2E38] hover:border-[#FEBC11]'
+            ? 'bg-[#FFFDF0]/80 hover:bg-[#FFFBE0]/90 backdrop-blur-md'
+            : 'bg-[#141418]/75 hover:bg-[#1A1A20]/90 backdrop-blur-md border-[#2E2E38] hover:border-[#FEBC11]'
         }`}
       >
         <div className="flex items-center gap-4">
