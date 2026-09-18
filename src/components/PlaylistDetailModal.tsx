@@ -91,7 +91,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
             <p className={`text-xs sm:text-sm font-medium ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>
               {playlist.description}
             </p>
-            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
               {onOpenSpotify && (
                 <button
                   type="button"
