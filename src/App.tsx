@@ -14,6 +14,7 @@ import { SpotifyChooserModal, SpotifyItemTarget } from './components/SpotifyChoo
 import { PairingGuideModal } from './components/PairingGuideModal';
 import { INITIAL_TIME_SLOTS, INITIAL_REQUESTS, getTrackCover } from './data';
 import { Track, Playlist, TimeSlot, RequestTicket, Language, Theme, SpotifyWebPlaybackPlayer, AlbumDetail, ArtistDetail, ShuffleMode, RepeatMode } from './types';
+import { getActivePlaylistId, getUpcomingPlaylistQueue } from './utils/tracks';
 import {
   getSpotifyUserAuthUrl,
   checkAndStoreUserTokenFromUrl,
@@ -190,6 +191,7 @@ export default function App() {
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [playbackPlaylistId, setPlaybackPlaylistId] = useState<string>('');
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(getInitialTimeSlots);
+  const timeSlotsRef = useRef(timeSlots);
   const [requestQueue, setRequestQueue] = useState<RequestTicket[]>(INITIAL_REQUESTS);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -212,18 +214,9 @@ export default function App() {
   const contextPlaylistId = playbackContextUri.startsWith('spotify:playlist:')
     ? playbackContextUri.split(':').pop()
     : undefined;
-  const matchingPlaylists = currentTrack.spotifyId
-    ? playlists.filter((playlist) => playlist.tracks.some(
-        (track) => track.spotifyId === currentTrack.spotifyId,
-      ))
-    : [];
-  const activePlaylistId = (currentTrack.spotifyId && contextPlaylistId
-    ? playlists.find((playlist) => playlist.spotifyId === contextPlaylistId
-        && (playlist.tracks.length === 0 || matchingPlaylists.includes(playlist)))?.id
-    : undefined)
-    || matchingPlaylists.find((playlist) => playlist.id === playbackPlaylistId)?.id
-    || matchingPlaylists[0]?.id
-    || '';
+  const activePlaylistId = currentTrack.spotifyId
+    ? getActivePlaylistId(playlists, currentTrack, contextPlaylistId, playbackPlaylistId)
+    : '';
   const activePlaylistIdRef = useRef(activePlaylistId);
 
   const [albumModal, setAlbumModal] = useState<AlbumDetail | null>(null);
@@ -258,6 +251,10 @@ export default function App() {
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
+
+  useEffect(() => {
+    timeSlotsRef.current = timeSlots;
+  }, [timeSlots]);
 
   useEffect(() => {
     activePlaylistIdRef.current = activePlaylistId;
@@ -502,18 +499,29 @@ export default function App() {
 
         const currentId = state.track_window.current_track.id;
         const seen = new Set<string>();
-        setSpotifyQueue((state.track_window.next_tracks || [])
+        const sdkQueue = (state.track_window.next_tracks || [])
           .filter((track: any) => track?.id && track.type !== 'episode')
           .map((track: any) => toAppTrack(track))
           .filter((track: Track) => {
             if (!track.spotifyId || track.spotifyId === currentId || seen.has(track.spotifyId)) return false;
             seen.add(track.spotifyId);
             return true;
-          }));
+          });
 
         // Prefer Spotify playlist context so LIVE moves with the real source playlist.
         // Never mark every playlist that merely contains the track — that duplicates LIVE.
         const contextUri = state.context?.uri || '';
+        const contextPlaylistId = contextUri.startsWith('spotify:playlist:')
+          ? contextUri.split(':').pop()
+          : undefined;
+        const contextPlaylist = contextPlaylistId
+          ? timeSlotsRef.current
+              .flatMap((slot) => slot.playlists)
+              .find((playlist) => playlist.spotifyId === contextPlaylistId)
+          : undefined;
+        setSpotifyQueue(contextPlaylist
+          ? getUpcomingPlaylistQueue(sdkQueue, contextPlaylist.tracks, liveTrack)
+          : sdkQueue.slice(0, 7));
         void resolvePlaybackContext(
           contextUri,
           contextUri.startsWith('spotify:album:')
@@ -883,14 +891,13 @@ export default function App() {
       && !playlist.spotifyId.startsWith('artist-')
       && playlist.spotifyId.length > 10;
 
-    const playlistTrackIndex = isRealSpotifyPlaylist
-      ? playlist.tracks.findIndex((candidate) => candidate.spotifyId === track.spotifyId)
-      : -1;
-
     const playbackBody: Record<string, unknown> = isRealSpotifyPlaylist
       ? {
           context_uri: `spotify:playlist:${playlist.spotifyId}`,
-          ...(playlistTrackIndex >= 0 ? { offset: { position: playlistTrackIndex } } : {}),
+          // Cached playlists can omit unavailable/local/episode items, so their
+          // array index is not necessarily Spotify's playlist position. The URI
+          // keeps the selected track and its following context aligned.
+          offset: { uri: `spotify:track:${track.spotifyId}` },
         }
       : { uris: [`spotify:track:${track.spotifyId}`] };
 
@@ -905,6 +912,9 @@ export default function App() {
     setPlaybackPlaylistId(playlist.id);
     setPlaybackContextName(playlist.title);
     if (isRealSpotifyPlaylist && playlist.spotifyId) {
+      // Reflect the newly selected playlist immediately. The SDK replaces this
+      // optimistic sequence with Spotify's authoritative queue on its next event.
+      setSpotifyQueue(getUpcomingPlaylistQueue([], playlist.tracks, track));
       void resolvePlaybackContext(`spotify:playlist:${playlist.spotifyId}`, playlist.title);
     } else {
       // Single-track play has no playlist/album context. Clear the local queue so

@@ -484,7 +484,7 @@ export const BottomPlayer: React.FC<BottomPlayerProps> = ({
 
                 {spotifyQueue.length > 0 ? (
                   <div className="max-h-64 overflow-y-auto space-y-2 mt-2 pr-0.5">
-                    {spotifyQueue.slice(0, 12).map((track, index) => (
+                    {spotifyQueue.slice(0, 7).map((track, index) => (
                       <button
                         type="button"
                         key={`${track.spotifyId || track.id}-${index}`}
