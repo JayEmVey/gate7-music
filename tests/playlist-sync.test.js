@@ -31,7 +31,7 @@ function fixture() {
 }
 
 test('catalog deduplicates languages and preserves every time slot', () => {
-  assert.equal(playlistCatalog.length, 19);
+  assert.equal(playlistCatalog.length, 20);
   assert.deepEqual(playlistCatalog.find((entry) => entry.id === '08si8IrCPeJrDQsLPdSXqX').slots, ['afternoon', 'lunch']);
 });
 
