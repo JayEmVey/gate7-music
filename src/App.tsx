@@ -217,6 +217,7 @@ export default function App() {
   const activePlaylistId = currentTrack.spotifyId
     ? getActivePlaylistId(playlists, currentTrack, contextPlaylistId, playbackPlaylistId)
     : '';
+  const activePlaylist = playlists.find((playlist) => playlist.id === activePlaylistId);
   const activePlaylistIdRef = useRef(activePlaylistId);
 
   const [albumModal, setAlbumModal] = useState<AlbumDetail | null>(null);
@@ -1245,6 +1246,8 @@ export default function App() {
             playbackSec={playbackSec}
             onSeek={handleSeek}
             onPairingClick={() => setIsPairingModalOpen(true)}
+            activePlaylist={activePlaylist}
+            onPlaylistClick={handleSelectPlaylist}
             spotifyDesktopStatus={spotifyDesktopStatus}
             spotifySource={spotifySource}
             isAudioFeaturesLoading={isAudioFeaturesLoading}

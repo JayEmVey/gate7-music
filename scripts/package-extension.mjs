@@ -7,6 +7,6 @@ const manifest = JSON.parse(readFileSync(resolve(directory, 'manifest.json'), 'u
 const output = resolve(`build/gate7-playlist-sync-${manifest.version}.zip`);
 mkdirSync(resolve('build'), { recursive: true });
 rmSync(output, { force: true });
-execFileSync('zip', ['-q', output, 'manifest.json', 'auth.js', 'background.js', 'dashboard.html', 'dashboard.css', 'dashboard.js'], { cwd: directory });
+execFileSync('zip', ['-q', output, 'manifest.json', 'auth.js', 'catalog.js', 'background.js', 'dashboard.html', 'dashboard.css', 'dashboard.js'], { cwd: directory });
 console.log(`Extension package: ${output}`);
 console.log('For local installation: chrome://extensions → Developer mode → Load unpacked → extension/');

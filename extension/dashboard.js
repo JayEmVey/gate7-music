@@ -25,9 +25,11 @@ function render(data) {
   $('sync-all').disabled = !connected || Boolean(data.job) || busy;
   $('refresh').disabled = !connected || Boolean(data.job) || busy;
   $('redirect').textContent = data.redirectUri || '';
+  $('client-id').textContent = data.clientId || 'Loaded when connecting';
+  if (data.authIssue) $('connection-setup').open = true;
   $('total').textContent = data.playlists.length || '—';
-  $('cached').textContent = data.playlists.filter((item) => item.cache === 'cached').length;
-  $('errors').textContent = data.playlists.filter((item) => item.cache !== 'cached').length;
+  $('cached').textContent = connected ? data.playlists.filter((item) => item.cache === 'cached').length : '—';
+  $('errors').textContent = connected ? data.playlists.filter((item) => item.cache === 'error' || item.cache === 'not-yet').length : '—';
   $('last-run').textContent = date(data.lastRun?.finishedAt);
   $('notice').hidden = !data.error;
   $('notice').textContent = data.error || '';
@@ -35,6 +37,7 @@ function render(data) {
     ? `${data.job.force ? 'Syncing' : 'Checking'} playlists · ${data.job.completed} of ${data.job.total} completed${data.retryAt > Date.now() ? ` · Resumes after ${date(data.retryAt)}` : !connected ? ' · Reconnect Spotify to resume' : ''}`
     : data.lastRun ? `Last run complete · ${data.lastRun.total - data.lastRun.failures} succeeded${data.lastRun.failures ? ` · ${data.lastRun.failures} need attention` : ''}` : '';
   $('empty').hidden = data.playlists.length > 0;
+  $('empty').textContent = data.error ? 'Playlist catalog unavailable. Check the message above.' : 'Loading Gate 7’s playlist catalog…';
   const rows = data.playlists.map((item) => {
     const tr = element('tr');
     const info = element('td');
@@ -55,7 +58,7 @@ function render(data) {
     if (item.changes) delta.append(element('span', `−${item.changes.removed} removed`, 'sub'));
     const status = element('td');
     const active = data.activeId === item.id;
-    status.append(element('span', active ? 'Syncing…' : item.cache === 'cached' ? 'Cached' : item.cache === 'error' ? 'Error' : 'Not yet', `badge ${active ? 'syncing' : item.cache}`));
+    status.append(element('span', !connected ? 'Sign in to check' : active ? 'Syncing…' : item.cache === 'cached' ? 'Cached' : item.cache === 'error' ? 'Error' : item.cache === 'unknown' ? 'Unknown' : 'Not yet', `badge ${!connected ? 'unknown' : active ? 'syncing' : item.cache}`));
     if (item.error) status.append(element('span', item.error, 'row-error'));
     const action = element('td');
     const button = element('button', active ? 'Syncing…' : 'Sync', 'quiet');

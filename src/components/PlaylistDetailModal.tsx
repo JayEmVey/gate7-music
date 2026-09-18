@@ -168,7 +168,7 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
 
             return (
               <div
-                key={track.id}
+                key={`${track.id}-${idx}`}
                 onClick={() => onPlayTrack(track, playlist)}
                 className={`p-3 border-2 flex items-center justify-between gap-3 shadow-brutal transition-all cursor-pointer group ${
                   isCurrent

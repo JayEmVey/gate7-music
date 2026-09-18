@@ -1,4 +1,5 @@
-import { SITE, createAuthorization, authorizationCode, requestTokens } from './auth.js';
+import { SITE, createAuthorization, authorizationCode, authorizationFailure, requestTokens } from './auth.js';
+import { playlistCatalog } from './catalog.js';
 
 const AUTO_ALARM = 'gate7-auto-sync';
 const RESUME_ALARM = 'gate7-resume-sync';
@@ -37,7 +38,16 @@ async function configuration() {
   }
   const data = await response.json();
   if (!data.clientId) throw new Error('The Worker is missing SPOTIFY_CLIENT_ID.');
+  await update({ clientId: data.clientId });
   return data;
+}
+
+async function loadCatalog() {
+  const response = await fetch(`${SITE}/music/playlists.json`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+  if (!response.ok) throw new Error('Could not load Gate 7’s public playlist catalog. Check your connection and reopen the dashboard.');
+  const playlists = playlistCatalog(await response.json());
+  if (!playlists.length) throw new Error('Gate 7’s public playlist catalog is empty or invalid.');
+  await update({ playlists });
 }
 
 async function accessToken() {
@@ -83,7 +93,7 @@ async function api(path, body, retry = true) {
 
 async function refreshStatus() {
   const data = await api('/api/admin/playlists');
-  await update({ user: data.user, playlists: data.playlists, error: null });
+  await update({ user: data.user, playlists: data.playlists, error: null, authIssue: false });
   return data;
 }
 
@@ -91,11 +101,16 @@ async function login() {
   if (loginPromise) return loginPromise;
   const authGeneration = generation;
   loginPromise = (async () => {
-    await update({ connecting: true, error: null });
+    await update({ connecting: true, error: null, authIssue: false });
     const { clientId } = await configuration();
     const redirectUri = chrome.identity.getRedirectURL('spotify');
     const auth = await createAuthorization(clientId, redirectUri);
-    const callback = await chrome.identity.launchWebAuthFlow({ url: auth.url, interactive: true });
+    let callback;
+    try {
+      callback = await chrome.identity.launchWebAuthFlow({ url: auth.url, interactive: true });
+    } catch (error) {
+      throw authorizationFailure(error, clientId, redirectUri);
+    }
     if (!callback) throw new Error('Spotify sign-in was cancelled.');
     const code = authorizationCode(callback, redirectUri, auth.state);
     const tokens = await requestTokens({
@@ -110,7 +125,7 @@ async function login() {
     void resume();
   })().catch(async (error) => {
     await chrome.storage.session.remove('spotify');
-    await update({ user: null, error: error.message });
+    await update({ user: null, error: error.message, authIssue: true });
     throw error;
   }).finally(async () => {
     await update({ connecting: false });
@@ -194,12 +209,20 @@ async function handle(message) {
     case 'state': return state();
     case 'initialize': {
       await restoreAlarms();
+      let catalogError = null;
+      try { await loadCatalog(); }
+      catch (error) { catalogError = error.message; }
       const { spotify } = await chrome.storage.session.get('spotify');
-      if (!spotify) await login();
+      // Show the sign-in prompt on first load. Chrome recommends launching the
+      // interactive OAuth window from an explicit user action, not initialization.
+      if (!spotify) await update({ user: null, connecting: false, error: catalogError });
       else {
         try { await refreshStatus(); }
         catch (error) {
-          if (error.status === 401) await login();
+          if (error.status === 401) {
+            await chrome.storage.session.remove('spotify');
+            await update({ user: null, connecting: false, error: 'Your Spotify session expired. Click Connect Spotify to sign in again.' });
+          }
           else { await update({ user: null, error: error.message }); throw error; }
         }
       }
@@ -210,7 +233,7 @@ async function handle(message) {
     case 'logout':
       generation++;
       await chrome.storage.session.remove('spotify');
-      await update({ user: null, auto: false, job: null, activeId: null, error: null, connecting: false });
+      await update({ user: null, auto: false, job: null, activeId: null, error: null, connecting: false, authIssue: false });
       await chrome.alarms.clearAll();
       return state();
     case 'refresh': await refreshStatus(); return state();

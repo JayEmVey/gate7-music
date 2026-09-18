@@ -18,7 +18,7 @@
       <p class="description">Your Spotify playlists, synchronized with Gate 7. Check what changed and publish the latest tracks without touching the website.</p>
     </section>
     <section class="connection" aria-label="Spotify connection">
-      <div><span id="connection-dot" class="dot"></span><strong id="account">Connect your Spotify manager account</strong><p>Spotify sign-in is required before any playlist can be synchronized.</p></div>
+      <div><span id="connection-dot" class="dot"></span><strong id="account">Connect your Spotify manager account</strong><p>Click Connect Spotify to sign in securely. Playlist synchronization requires your manager account.</p></div>
       <div class="connection-actions"><button id="connect">Connect Spotify</button><button id="disconnect" class="quiet" hidden>Disconnect</button></div>
     </section>
     <div id="notice" role="status" aria-live="polite" hidden></div>
@@ -38,11 +38,11 @@
         <thead><tr><th>PLAYLIST / TIME SLOT</th><th>TRACKS</th><th>LAST CHANGE SYNCED</th><th>LAST SYNC CHANGES</th><th>CLOUDFLARE CACHE</th><th><span class="sr-only">Actions</span></th></tr></thead>
         <tbody id="playlists"></tbody>
       </table>
-      <div id="empty">Connect Spotify to see all Gate 7 playlists and their cache status.</div>
+      <div id="empty">Loading Gate 7’s playlist catalog…</div>
     </div>
     <footer>
       <p>“Cached” confirms a successful Cloudflare KV write. The website loads cached tracks when a visitor opens a playlist. This extension detects Spotify changes on the next automatic check.</p>
-      <details><summary>Connection setup</summary><p>Register this exact redirect URL in your Spotify app settings:</p><code id="redirect"></code><p>The Worker must be deployed with the playlist sync binding and your Spotify account in its manager allowlist. “Last change synced” is when Gate 7 detected and saved the change; Spotify does not provide an edit timestamp.</p></details>
+      <details id="connection-setup"><summary>Connection setup</summary><p>Spotify client ID: <code id="client-id">Loaded when connecting</code></p><p>Register this exact redirect URL in your <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">Spotify app settings ↗</a>:</p><code id="redirect"></code><p>The Worker must be deployed with the playlist sync binding and your Spotify account in its manager allowlist. “Last change synced” is when Gate 7 detected and saved the change; Spotify does not provide an edit timestamp.</p></details>
     </footer>
   </main>
   <script type="module" src="dashboard.js"></script>

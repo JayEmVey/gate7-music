@@ -1,6 +1,6 @@
 import React from 'react';
 import { useReducedMotion } from 'motion/react';
-import { Track, TrackAudioFeatures, Language, ShuffleMode, RepeatMode } from '../types';
+import { Track, TrackAudioFeatures, Language, Playlist, ShuffleMode, RepeatMode } from '../types';
 import { SonicPairingG7Icon } from './SonicPairingG7Icon';
 import { COFFEE_PAIRINGS, getTrackCover } from '../data';
 import { getCoffeePairing } from '../utils/pairing';
@@ -20,6 +20,8 @@ interface SoundstageHeroProps {
   playbackSec: number;
   onSeek: (sec: number) => void;
   onPairingClick: () => void;
+  activePlaylist?: Playlist;
+  onPlaylistClick: (playlist: Playlist) => void;
   spotifyDesktopStatus?: string;
   spotifySource?: 'desktop' | 'web';
   isAudioFeaturesLoading?: boolean;
@@ -42,6 +44,8 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   playbackSec,
   onSeek,
   onPairingClick,
+  activePlaylist,
+  onPlaylistClick,
   spotifyDesktopStatus,
   spotifySource = 'desktop',
   isAudioFeaturesLoading = false,
@@ -326,7 +330,23 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
                 }`}
               >
                 {language === 'vi' ? 'KHUNG GIỜ VÀNG 9 AM – 11 AM' : 'GOLDEN HOUR 9 AM – 11 AM'}
-              </span>    
+              </span>
+              {activePlaylist && (
+                <button
+                  type="button"
+                  onClick={() => onPlaylistClick(activePlaylist)}
+                  className={`inline-flex max-w-full items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider border transition-colors cursor-pointer ${
+                    isLight
+                      ? 'bg-[#FEBC11] text-black border-black hover:bg-black hover:text-white'
+                      : 'bg-[#FEBC11] text-black border-[#FEBC11] hover:bg-white hover:border-white'
+                  }`}
+                  title={language === 'vi' ? `Mở playlist ${activePlaylist.title}` : `Open playlist ${activePlaylist.title}`}
+                  aria-label={language === 'vi' ? `Mở playlist ${activePlaylist.title}` : `Open playlist ${activePlaylist.title}`}
+                >
+                  <i className="fa-solid fa-music" aria-hidden="true"></i>
+                  <span className="truncate">{activePlaylist.title}</span>
+                </button>
+              )}
             </div>
 
             <h1

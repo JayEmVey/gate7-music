@@ -1,6 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAuthorization, authorizationCode, base64url, requestTokens, SCOPES } from '../extension/auth.js';
+import { createAuthorization, authorizationCode, authorizationFailure, base64url, requestTokens, SCOPES } from '../extension/auth.js';
+import { playlistCatalog } from '../extension/catalog.js';
+
+test('public catalog deduplicates playlists and does not invent cache status', () => {
+  const item = { id: 'one', name: 'Morning coffee' };
+  const catalog = playlistCatalog({ us: { morning: [item], evening: [item] }, vn: { morning: [item] } });
+  assert.equal(catalog.length, 1);
+  assert.deepEqual(catalog[0].slots, ['morning', 'evening']);
+  assert.equal(catalog[0].cache, 'unknown');
+  assert.deepEqual(playlistCatalog({ error: 'Unavailable' }), []);
+});
+
+test('Chrome authorization failures expose setup details without claiming a confirmed cause', () => {
+  const error = authorizationFailure(new Error('Authorization page could not be loaded.'), 'client-id', 'https://test.chromiumapp.org/spotify');
+  assert.match(error.message, /client-id/);
+  assert.match(error.message, /https:\/\/test.chromiumapp.org\/spotify/);
+  assert.match(error.message, /already registered/);
+  assert.match(authorizationFailure(new Error('The user did not approve access.'), 'client', 'redirect').message, /cancelled/);
+});
 
 test('PKCE uses an unpredictable verifier, S256 challenge and separate state', async () => {
   const auth = await createAuthorization('client', 'https://example.chromiumapp.org/spotify');

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gate 7 · Playlist Sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Securely synchronize Gate 7's Spotify playlists with the coffee shop website.",
   "minimum_chrome_version": "120",
   "permissions": [

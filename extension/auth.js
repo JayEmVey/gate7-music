@@ -1,6 +1,17 @@
 export const SITE = 'https://music.gate7.vn';
 export const SCOPES = 'playlist-read-private playlist-read-collaborative user-read-private';
 
+export function authorizationFailure(error, clientId, redirectUri) {
+  const message = error?.message || String(error);
+  if (/page could not be loaded/i.test(message)) {
+    return new Error(`Chrome could not load Spotify's sign-in page. Check that the redirect URL ${redirectUri} is registered in Spotify app ${clientId}. If it is already registered, check your connection to accounts.spotify.com and any browser or network restrictions, then click Connect Spotify again.`);
+  }
+  if (/cancel|closed|not approve|denied/i.test(message)) {
+    return new Error('Spotify sign-in was cancelled. Click Connect Spotify when you are ready.');
+  }
+  return new Error(`Could not open Spotify sign-in: ${message}`);
+}
+
 export function base64url(bytes) {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }
