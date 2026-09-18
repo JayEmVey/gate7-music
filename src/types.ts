@@ -117,6 +117,7 @@ export interface SpotifyWebPlaybackPlayer {
   resume: () => Promise<void>;
   seek: (positionMs: number) => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
+  setName: (name: string) => Promise<void>;
   nextTrack: () => Promise<void>;
   previousTrack: () => Promise<void>;
   getCurrentState: () => Promise<any | null>;

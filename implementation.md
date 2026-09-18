@@ -76,7 +76,7 @@ Replacing traditional static icons, this component introduces an animated SVG ch
 ### 2.7 Interactive Modals & Spotify Integration
 - **Gate 7 Spotify Auto-Authentication (`/src/utils/spotify.ts`)**:
   - Authenticates the signed-in Spotify user with OAuth Authorization Code + PKCE and requests the `streaming` scope required by the Web Playback SDK.
-  - Loads the Spotify Web Playback SDK in the browser and creates the `Gate 7 Soundstage` player device.
+  - Loads the Spotify Web Playback SDK in the browser and creates the `Gate 7 Soundstage - <device label>` player device. The default label uses the browser's platform (e.g. Mac or iPhone); the Spotify device name control above the footer saves a custom label such as Macmini or iPhone16e in this browser's local storage and updates the player through SDK `setName` without reconnecting. Browsers do not reliably expose exact hardware models.
   - Uses SDK `player_state_changed` events for current track, play state, and metadata; playback is scoped to the Gate 7 Soundstage browser device.
   - Removed obsolete "Spotify Sync" buttons across the application in favor of persistent, automatic connection indicators.
 - **Spotify Chooser Modal (`SpotifyChooserModal.tsx`)**:

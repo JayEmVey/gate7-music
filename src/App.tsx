@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { usePlaylistSync } from './hooks/usePlaylistSync';
 import { Header } from './components/Header';
+import { DeviceNameSettings } from './components/DeviceNameSettings';
+import { DEVICE_SUFFIX_STORAGE_KEY, getStoredDeviceSuffix, getSpotifyDeviceName } from './utils/deviceName';
 import { SoundstageHero } from './components/SoundstageHero';
 import { PlaylistGrid } from './components/PlaylistGrid';
 import { SidebarRight } from './components/SidebarRight';
@@ -251,6 +253,14 @@ export default function App() {
   } | null>(null);
   const [isAudioFeaturesLoading, setIsAudioFeaturesLoading] = useState(false);
   const spotifyPlayerRef = useRef<SpotifyWebPlaybackPlayer | null>(null);
+  const [deviceSuffix, setDeviceSuffix] = useState(getStoredDeviceSuffix);
+  const deviceSuffixRef = useRef(deviceSuffix);
+  const handleSaveDeviceSuffix = async (suffix: string) => {
+    await spotifyPlayerRef.current?.setName(getSpotifyDeviceName(suffix));
+    localStorage.setItem(DEVICE_SUFFIX_STORAGE_KEY, suffix);
+    deviceSuffixRef.current = suffix;
+    setDeviceSuffix(suffix);
+  };
   const spotifyDeviceIdRef = useRef<string | null>(null);
   const pendingRestoreRef = useRef<PersistedPlaybackState | null>(persistedPlayback);
   const isLocalPlaybackActiveRef = useRef(false);
@@ -483,7 +493,7 @@ export default function App() {
     const initializePlayer = () => {
       if (!mounted || !window.Spotify || spotifyPlayerRef.current) return;
       const player = new window.Spotify.Player({
-        name: 'Gate 7 Soundstage',
+        name: getSpotifyDeviceName(deviceSuffixRef.current),
         getOAuthToken: async (callback) => {
           const token = getSpotifyUserToken() || await refreshSpotifyUserToken();
           if (token) callback(token);
@@ -1352,6 +1362,13 @@ export default function App() {
             />
           </div>
         </div>
+
+        <DeviceNameSettings
+          suffix={deviceSuffix}
+          onSave={handleSaveDeviceSuffix}
+          language={language}
+          theme={theme}
+        />
 
         {/* Footer */}
         <footer
