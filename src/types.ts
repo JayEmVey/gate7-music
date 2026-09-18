@@ -27,6 +27,8 @@ export interface Track {
   coffeePairing?: string;
   cover?: string;
   coverUrl?: string;
+  /** Optional supplied video URL; Spotify's public API does not provide Canvas. */
+  canvasUrl?: string;
   genre?: string;
   audioFeatures?: TrackAudioFeatures;
   audioFeaturesSource?: 'worker' | 'estimated';

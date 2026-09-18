@@ -198,6 +198,11 @@ The refresh token must be issued for the same Spotify app as
 token through the OAuth flow.
 
 ### 5.7 Code Quality & Linting
+
+The manager's Chrome extension supports manual and automatic Spotify-to-KV
+playlist synchronization. See [Playlist Sync setup](extension/README.md) for
+installation, the required Spotify callback registration, and deployment.
+
 Run TypeScript checks to verify type safety and ensure no compilation errors:
 ```bash
 npm run lint

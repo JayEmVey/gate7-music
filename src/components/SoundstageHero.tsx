@@ -1,4 +1,5 @@
 import React from 'react';
+import { useReducedMotion } from 'motion/react';
 import { Track, TrackAudioFeatures, Language, ShuffleMode, RepeatMode } from '../types';
 import { SonicPairingG7Icon } from './SonicPairingG7Icon';
 import { COFFEE_PAIRINGS, getTrackCover } from '../data';
@@ -52,6 +53,28 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
   const [failedArtworkUrl, setFailedArtworkUrl] = React.useState<string | null>(null);
   const artworkUrl = currentTrack.coverUrl || currentTrack.cover;
   const hasArtwork = Boolean(artworkUrl && artworkUrl !== failedArtworkUrl);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const reduceMotion = useReducedMotion();
+  const canvasUrl = currentTrack.canvasUrl;
+  const [failedCanvasUrl, setFailedCanvasUrl] = React.useState<string | null>(null);
+  const [readyCanvasUrl, setReadyCanvasUrl] = React.useState<string | null>(null);
+  const hasCanvas = Boolean(canvasUrl && canvasUrl !== failedCanvasUrl && !reduceMotion);
+
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !hasCanvas) return;
+    let cancelled = false;
+    if (isPlaying) {
+      void video.play().catch((error: unknown) => {
+        if (!cancelled && !(error instanceof DOMException && error.name === 'AbortError')) {
+          setFailedCanvasUrl(canvasUrl!);
+        }
+      });
+    } else {
+      video.pause();
+    }
+    return () => { cancelled = true; video.pause(); };
+  }, [canvasUrl, hasCanvas, isPlaying]);
   const audioFeatures = currentTrack.audioFeatures;
 
   const keyNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
@@ -138,17 +161,33 @@ export const SoundstageHero: React.FC<SoundstageHeroProps> = ({
           : 'bg-[#18181C] border-4 border-[#2A2A34] shadow-brutal-xl text-white'
       }`}
     >
-      {/* Decorative artwork stays beneath the translucent surface and controls. */}
-      {hasArtwork && (
+      {/* Supplied Canvas takes priority; artwork remains underneath as a fallback. */}
+      {(hasArtwork || hasCanvas) && (
         <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
-          <img
+          {hasArtwork && <img
             key={artworkUrl}
             src={artworkUrl}
             alt=""
             decoding="async"
             onError={() => setFailedArtworkUrl(artworkUrl!)}
-            className="h-full w-full object-cover object-center"
-          />
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />}
+          {hasCanvas && (
+            <video
+              key={canvasUrl}
+              ref={videoRef}
+              src={canvasUrl}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              disablePictureInPicture
+              tabIndex={-1}
+              onPlaying={() => setReadyCanvasUrl(canvasUrl!)}
+              onError={() => setFailedCanvasUrl(canvasUrl!)}
+              className={`absolute inset-0 h-full w-full object-cover object-center ${readyCanvasUrl === canvasUrl ? 'opacity-100' : 'opacity-0'}`}
+            />
+          )}
           <div
             className="absolute inset-0 backdrop-blur-[2px]"
             style={{

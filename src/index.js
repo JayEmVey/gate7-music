@@ -1,3 +1,6 @@
+import { handleSyncRoutes, coordinator, playlistCatalog } from './playlist-sync.js';
+export { PlaylistSyncCoordinator } from './playlist-sync.js';
+
 const PLAYLIST_CACHE_TTL_MS = 5 * 60 * 1000;
 let cachedSpotifyToken;
 const playlistRefreshes = new Map();
@@ -43,7 +46,7 @@ function playlistResponse(body, cacheStatus = 'MISS', status = 200) {
   return Response.json(body, {
     status,
     headers: {
-      'Cache-Control': status === 200 ? 'public, max-age=60' : 'no-store',
+      'Cache-Control': 'no-store',
       'X-Cache': cacheStatus
     }
   });
@@ -135,6 +138,13 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+
+    try {
+      const response = await handleSyncRoutes(request, env);
+      if (response) return response;
+    } catch {
+      return playlistResponse({ error: 'Playlist service is temporarily unavailable.' }, 'ERROR', 503);
+    }
 
     if (pathname === '/api/analysis/batch') {
       if (request.method !== 'GET') return new Response('Method Not Allowed', { status: 405 });
@@ -233,24 +243,49 @@ export default {
 
       const playlistId = decodeURIComponent(playlistMatch[1]);
       const cacheKey = `playlist:${playlistId}`;
-      const cached = await env.SPOTIFY_PLAYLIST_CACHE.get(cacheKey, 'json');
+      const managed = env.PLAYLIST_SYNC && playlistCatalog.some((entry) => entry.id === playlistId);
+      let cached = await env.SPOTIFY_PLAYLIST_CACHE.get(cacheKey, 'json');
+      // Bridge KV propagation when a browser already knows a newer revision.
+      if (managed && (!cached || (url.searchParams.has('revision') && cached.revision !== url.searchParams.get('revision')))) {
+        const latest = await coordinator(env, `/record?id=${playlistId}`);
+        if (latest.ok) cached = await latest.json() || cached;
+      }
+      const refreshRecord = async () => {
+        if (!managed) {
+          const record = await loadPlaylistTracks(playlistId, env);
+          await env.SPOTIFY_PLAYLIST_CACHE.put(cacheKey, JSON.stringify(record));
+          return record;
+        }
+        const response = await coordinator(env, `/sync?id=${playlistId}`, { token: await getSpotifyAccessToken(env), force: false });
+        if (!response.ok) {
+          const error = new Error((await response.json()).error);
+          error.status = response.status;
+          error.retryAfter = response.headers.get('Retry-After');
+          throw error;
+        }
+        const latest = await coordinator(env, `/record?id=${playlistId}`);
+        return latest.json();
+      };
       if (cached?.tracks) {
-        const stale = Date.now() - Number(cached.checkedAt || 0) >= PLAYLIST_CACHE_TTL_MS;
+        // Extension-managed records are explicitly refreshed by the manager.
+        const stale = cached.schemaVersion !== 2 && Date.now() - Number(cached.checkedAt || 0) >= PLAYLIST_CACHE_TTL_MS;
         if (stale && ctx && !playlistRefreshes.has(playlistId)) {
-          const refresh = loadPlaylistTracks(playlistId, env)
-            .then((record) => env.SPOTIFY_PLAYLIST_CACHE.put(cacheKey, JSON.stringify(record)))
+          const refresh = refreshRecord()
             .catch((error) => console.error('Playlist background refresh failed', { playlistId, error: String(error) }))
             .finally(() => playlistRefreshes.delete(playlistId));
           playlistRefreshes.set(playlistId, refresh);
           ctx.waitUntil(refresh);
         }
-        return playlistResponse(cached.tracks, stale ? 'STALE' : 'HIT');
+        const response = playlistResponse(cached.tracks, stale ? 'STALE' : 'HIT');
+        response.headers.set('X-Playlist-Revision', cached.revision || `legacy-${cached.checkedAt || 0}`);
+        return response;
       }
 
       try {
-        const record = await loadPlaylistTracks(playlistId, env);
-        await env.SPOTIFY_PLAYLIST_CACHE.put(cacheKey, JSON.stringify(record));
-        return playlistResponse(record.tracks, 'MISS');
+        const record = await refreshRecord();
+        const response = playlistResponse(record.tracks, 'MISS');
+        response.headers.set('X-Playlist-Revision', record.revision || `legacy-${record.checkedAt || 0}`);
+        return response;
       } catch (error) {
         const upstreamStatus = Number(error?.status);
         const responseStatus = Number.isInteger(upstreamStatus) && upstreamStatus >= 400 && upstreamStatus <= 599

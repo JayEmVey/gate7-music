@@ -180,6 +180,7 @@ export interface SpotifyPlaylistTrack {
   releaseDate?: string;
   durationSec: number;
   coverUrl: string;
+  canvasUrl?: string;
   spotifyUri: string;
   audioFeatures?: SpotifyTrackAudioFeatures;
 }
@@ -993,12 +994,12 @@ export function getCurrentSlotKey(): 'morning' | 'afternoon' | 'lunch' | 'evenin
   return 'evening'; // late night chill
 }
 
-export async function fetchCachedPlaylistTracks(playlistId: string): Promise<SpotifyPlaylistTrack[]> {
-  const endpoint = `/api/playlists/${encodeURIComponent(playlistId)}/tracks`;
+export async function fetchCachedPlaylistTracks(playlistId: string, revision?: string): Promise<SpotifyPlaylistTrack[]> {
+  const endpoint = `/api/playlists/${encodeURIComponent(playlistId)}/tracks${revision ? `?revision=${encodeURIComponent(revision)}` : ''}`;
   const startedAt = import.meta.env.DEV ? performance.now() : 0;
   let response: Response;
   try {
-    response = await fetch(endpoint);
+    response = await fetch(endpoint, { cache: 'no-store', signal: AbortSignal.timeout(30000) });
   } catch (error) {
     if (import.meta.env.DEV) {
       recordWorkerCacheStatus(endpoint, 'ERROR');
@@ -1030,6 +1031,9 @@ export async function fetchCachedPlaylistTracks(playlistId: string): Promise<Spo
     );
   }
 
+  if (revision && response.headers.get('X-Playlist-Revision') !== revision) {
+    throw new SpotifyApiError(409, 'A newer playlist update is arriving. Retrying shortly.');
+  }
   const tracks = await response.json() as Array<SpotifyPlaylistTrack & { audioAnalysis?: CachedAudioAnalysis }>;
   return tracks.map(({ audioAnalysis, ...track }) => ({
     ...track,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { usePlaylistSync } from './hooks/usePlaylistSync';
 import { Header } from './components/Header';
 import { SoundstageHero } from './components/SoundstageHero';
 import { PlaylistGrid } from './components/PlaylistGrid';
@@ -18,8 +19,6 @@ import {
   checkAndStoreUserTokenFromUrl,
   getSpotifyUserToken,
   refreshSpotifyUserToken,
-  fetchCachedPlaylistTracks,
-  enrichSpotifyPlaylistTracksWithAudioFeatures,
   fetchSpotifySearchTracks,
   fetchSpotifyTrackAudioFeatures,
   fetchSpotifyAlbum,
@@ -72,29 +71,6 @@ function withExclusiveNowPlaying(slots: TimeSlot[], activeId: string): TimeSlot[
   return changed ? next : slots;
 }
 
-function withLoadedPlaylistTracks(
-  slots: TimeSlot[],
-  playlistId: string,
-  tracks: Track[],
-  activeId: string,
-): TimeSlot[] {
-  return withExclusiveNowPlaying(
-    slots.map((slot) => ({
-      ...slot,
-      playlists: slot.playlists.map((playlist) => playlist.id === playlistId
-        ? {
-            ...playlist,
-            tracks,
-            trackCount: tracks.length,
-            loadError: undefined,
-            coverUrl: playlist.coverUrl || tracks.find((track) => track.coverUrl)?.coverUrl,
-          }
-        : playlist),
-    })),
-    activeId,
-  );
-}
-
 function toAppTrack(track: any, fallbackCover = '', previousTrack?: Track): Track {
   const spotifyId = track.id || track.spotifyId;
   const durationSec = Math.floor((track.duration_ms || track.durationSec * 1000 || 0) / 1000);
@@ -115,6 +91,7 @@ function toAppTrack(track: any, fallbackCover = '', previousTrack?: Track): Trac
     coffeePairing: track.coffeePairing || previousTrack?.coffeePairing,
     genre: track.genre || 'Spotify Web Playback',
     coverUrl: track.album?.images?.[0]?.url || track.coverUrl || fallbackCover,
+    canvasUrl: track.canvasUrl || (spotifyId && previousTrack?.spotifyId === spotifyId ? previousTrack.canvasUrl : undefined),
     audioFeatures: track.audioFeatures || (previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'worker' ? previousTrack.audioFeatures : undefined),
     audioFeaturesSource: track.audioFeatures ? 'worker' : previousTrack?.spotifyId === spotifyId && previousTrack.audioFeaturesSource === 'worker' ? 'worker' : undefined,
   };
@@ -131,6 +108,7 @@ function spotifyPlaylistTrackToAppTrack(track: {
   releaseDate?: string;
   durationSec: number;
   coverUrl: string;
+  canvasUrl?: string;
   audioFeatures?: Track['audioFeatures'];
 }): Track {
   return {
@@ -146,6 +124,7 @@ function spotifyPlaylistTrackToAppTrack(track: {
     duration: `${Math.floor(track.durationSec / 60)}:${String(track.durationSec % 60).padStart(2, '0')}`,
     durationSec: track.durationSec,
     coverUrl: track.coverUrl,
+    canvasUrl: track.canvasUrl,
     audioFeatures: track.audioFeatures,
     audioFeaturesSource: track.audioFeatures ? 'worker' : undefined,
   };
@@ -270,8 +249,6 @@ export default function App() {
   const [isAudioFeaturesLoading, setIsAudioFeaturesLoading] = useState(false);
   const spotifyPlayerRef = useRef<SpotifyWebPlaybackPlayer | null>(null);
   const spotifyDeviceIdRef = useRef<string | null>(null);
-  const playlistTrackCacheRef = useRef(new Map<string, Track[]>());
-  const playlistTrackRequestsRef = useRef(new Map<string, Promise<Track[]>>());
   const pendingRestoreRef = useRef<PersistedPlaybackState | null>(persistedPlayback);
   const isLocalPlaybackActiveRef = useRef(false);
   const heroSectionRef = useRef<HTMLDivElement | null>(null);
@@ -409,6 +386,11 @@ export default function App() {
   // Modal States
   const [isRequestModalOpen, setIsRequestModalOpen] = useState<boolean>(false);
   const [selectedPlaylistForModal, setSelectedPlaylistForModal] = useState<Playlist | null>(null);
+  const loadPlaylistTracks = usePlaylistSync({
+    setSlots: setTimeSlots,
+    setSelected: setSelectedPlaylistForModal,
+    mapTrack: spotifyPlaylistTrackToAppTrack,
+  });
   const [isPairingModalOpen, setIsPairingModalOpen] = useState<boolean>(false);
 
   // Establish a user session on page load. PKCE keeps the client secret out of the browser.
@@ -1164,104 +1146,6 @@ export default function App() {
     const queries = SONIC_CATEGORY_QUERIES[sonicCategory];
     const searchText = queries?.[0] ?? sonicCategory;
     await handleSearchSubmit(searchText);
-  };
-
-  const loadPlaylistTracks = async (playlist: Playlist) => {
-    setSelectedPlaylistForModal({ ...playlist, loadError: undefined });
-    if (!playlist.spotifyId) {
-      setSelectedPlaylistForModal(playlist);
-      return;
-    }
-
-    // Versioned to discard older cached tracks that carried a fabricated
-    // "Drip Drop Coffee" fallback for every Spotify song.
-    const cacheKey = `gate7_playlist_tracks:v4:${playlist.spotifyId}`;
-    let tracks = playlistTrackCacheRef.current.get(playlist.id);
-    if (!tracks) {
-      try {
-        const cached = sessionStorage.getItem(cacheKey);
-        if (cached) tracks = JSON.parse(cached) as Track[];
-      } catch {
-        sessionStorage.removeItem(cacheKey);
-      }
-    }
-
-    try {
-      if (!tracks) {
-        let request = playlistTrackRequestsRef.current.get(playlist.id);
-        if (!request) {
-          request = fetchCachedPlaylistTracks(playlist.spotifyId)
-            .then((spotifyTracks) => spotifyTracks.map(spotifyPlaylistTrackToAppTrack));
-          playlistTrackRequestsRef.current.set(playlist.id, request);
-        }
-        try {
-          tracks = await request;
-        } finally {
-          playlistTrackRequestsRef.current.delete(playlist.id);
-        }
-      }
-
-      const readyPlaylist = { ...playlist, tracks, loadError: undefined, trackCount: tracks.length };
-      setSelectedPlaylistForModal((selected) => selected?.id === playlist.id ? readyPlaylist : selected);
-      playlistTrackCacheRef.current.set(playlist.id, tracks);
-      // Membership drives the slot collapse rule, so publish fetched tracks
-      // before the slower audio-feature enrichment request completes.
-      setTimeSlots((slots) => withLoadedPlaylistTracks(
-        slots,
-        playlist.id,
-        tracks!,
-        activePlaylistIdRef.current,
-      ));
-      const tracksNeedingAnalysis = tracks.filter((track) => track.spotifyId && !track.audioFeatures);
-      if (tracksNeedingAnalysis.length > 0) {
-        const enrichedTracks = await enrichSpotifyPlaylistTracksWithAudioFeatures(
-          tracks.map((track) => ({
-            id: track.spotifyId || track.id,
-            title: track.title,
-            artist: track.artist,
-            artistId: track.artistId,
-            album: track.album || '',
-            albumId: track.albumId,
-            albumType: track.albumType,
-            releaseDate: track.releaseDate,
-            durationSec: track.durationSec,
-            coverUrl: track.coverUrl || '',
-            spotifyUri: `spotify:track:${track.spotifyId || track.id}`,
-            audioFeatures: track.audioFeatures,
-          })),
-        );
-        tracks = enrichedTracks.map(spotifyPlaylistTrackToAppTrack);
-      }
-
-      playlistTrackCacheRef.current.set(playlist.id, tracks);
-      try { sessionStorage.setItem(cacheKey, JSON.stringify(tracks)); } catch { /* Storage is optional. */ }
-
-      const updatedPlaylist = {
-        ...playlist,
-        loadError: undefined,
-        tracks,
-        trackCount: tracks.length,
-        coverUrl: playlist.coverUrl || tracks.find((track) => track.coverUrl)?.coverUrl,
-        isNowPlaying: playlist.id === activePlaylistIdRef.current,
-      };
-      setTimeSlots((slots) => withLoadedPlaylistTracks(
-        slots,
-        playlist.id,
-        tracks!,
-        activePlaylistIdRef.current,
-      ));
-      setSelectedPlaylistForModal((selected) => selected?.id === playlist.id ? updatedPlaylist : selected);
-    } catch (error) {
-      // Access-denied and missing playlists are expected in Spotify Development
-      // Mode and are already surfaced in the modal; avoid noisy warning stacks.
-      if (!(error instanceof SpotifyApiError && (error.status === 403 || error.status === 404))) {
-        console.warn('Could not load Spotify playlist tracks:', error);
-      }
-      setSelectedPlaylistForModal((selected) => selected?.id === playlist.id ? {
-        ...playlist,
-        loadError: error instanceof Error ? error.message : 'Spotify could not load this playlist.',
-      } : selected);
-    }
   };
 
   const handleToggleShuffle = async () => {

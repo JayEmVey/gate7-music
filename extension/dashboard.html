@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gate 7 · Playlist Sync</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand">GATE 7 <span>MANAGER TOOLS</span></div>
+      <a href="https://music.gate7.vn" target="_blank" rel="noopener">Open music website ↗</a>
+    </header>
+    <section class="intro">
+      <p class="eyebrow">THE SOUND OF YOUR COFFEE SHOP</p>
+      <h1>Keep the music<br><em>up to date.</em></h1>
+      <p class="description">Your Spotify playlists, synchronized with Gate 7. Check what changed and publish the latest tracks without touching the website.</p>
+    </section>
+    <section class="connection" aria-label="Spotify connection">
+      <div><span id="connection-dot" class="dot"></span><strong id="account">Connect your Spotify manager account</strong><p>Spotify sign-in is required before any playlist can be synchronized.</p></div>
+      <div class="connection-actions"><button id="connect">Connect Spotify</button><button id="disconnect" class="quiet" hidden>Disconnect</button></div>
+    </section>
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <section class="summary" aria-label="Sync summary">
+      <div><span>PLAYLISTS</span><strong id="total">—</strong></div>
+      <div><span>CACHED</span><strong id="cached">—</strong></div>
+      <div><span>NEED ATTENTION</span><strong id="errors">—</strong></div>
+      <div><span>LAST RUN</span><strong id="last-run" class="small">Not yet</strong></div>
+    </section>
+    <section class="toolbar" aria-label="Playlist actions">
+      <div><button id="auto" class="toggle" aria-pressed="false" disabled>Auto-detected synchronization · Off</button><p>Checks every minute while Chrome is running and Spotify is connected.</p></div>
+      <div class="buttons"><button id="refresh" class="quiet" disabled>Refresh status</button><button id="sync-all" disabled>Sync all playlists ↗</button></div>
+    </section>
+    <div id="progress" role="status" aria-live="polite"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>PLAYLIST / TIME SLOT</th><th>TRACKS</th><th>LAST CHANGE SYNCED</th><th>LAST SYNC CHANGES</th><th>CLOUDFLARE CACHE</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody id="playlists"></tbody>
+      </table>
+      <div id="empty">Connect Spotify to see all Gate 7 playlists and their cache status.</div>
+    </div>
+    <footer>
+      <p>“Cached” confirms a successful Cloudflare KV write. The website loads cached tracks when a visitor opens a playlist. This extension detects Spotify changes on the next automatic check.</p>
+      <details><summary>Connection setup</summary><p>Register this exact redirect URL in your Spotify app settings:</p><code id="redirect"></code><p>The Worker must be deployed with the playlist sync binding and your Spotify account in its manager allowlist. “Last change synced” is when Gate 7 detected and saved the change; Spotify does not provide an edit timestamp.</p></details>
+    </footer>
+  </main>
+  <script type="module" src="dashboard.js"></script>
+</body>
+</html>

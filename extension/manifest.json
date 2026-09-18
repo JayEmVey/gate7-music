@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Gate 7 · Playlist Sync",
+  "version": "1.0.0",
+  "description": "Securely synchronize Gate 7's Spotify playlists with the coffee shop website.",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "identity",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://music.gate7.vn/*",
+    "https://accounts.spotify.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open Gate 7 Playlist Sync"
+  },
+  "options_page": "dashboard.html",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://music.gate7.vn https://accounts.spotify.com; img-src 'self' https://i.scdn.co https://mosaic.scdn.co https://image-cdn-ak.spotifycdn.com https://image-cdn-fa.spotifycdn.com; base-uri 'none'"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7rCTVm8LBBXtX3ovydrQMzZZHs1SpHq1o+9RyN93fhoqsxKRqdZuEpocIpAJw+R5XTgYEClLbZKZcj2AbK3+fEYGM+M26Ol2SpRwdc3Bkp08bTgJ3SrVyb4VNbAruuDCmLSfRp9fP5cciZm5nWaaH2lrjtpJrouk+G36btnyeKNOXKkVf3xOUzl6AMDlqEjkb9eiwjYYQpYeULmVs8F3wu99RsaBlb5dp/zZgqN6EbDD8lPuz0hP/Q1TJyLrifYrI5Id5O7UILq4F8mmEoG2eDTyTrTADduHk+BtCqretRt38hZj96zcEZjuvkZYHSsvMLcO85m97wBOF1eLbipSPwIDAQAB"
+}
