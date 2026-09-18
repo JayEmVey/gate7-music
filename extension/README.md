@@ -57,7 +57,7 @@ Cache states:
 - **Cached:** Cloudflare accepted the KV write (or an existing record was found).
 - **Error:** a check, download, or cache write failed. The row shows the reason; retry with **Sync**.
 
-The website does not poll for playlist updates or request the revision manifest on page load, tab focus, or reconnect. Automatic Spotify update detection runs only in this extension. When a visitor opens or explicitly retries a playlist, the website requests its cached tracks and updates the displayed track count and duration. An already-open playlist stays as displayed until reopened or retried; playback is preserved. Website card names and covers continue to come from the configured playlist JSON. KV propagation, network outages and Spotify rate limits can delay visibility of updates.
+The website requests the lightweight revision manifest once while loading its playlist configuration so cards show the published track count and duration before they are opened. It does not poll on tab focus or reconnect. Automatic Spotify update detection runs only in this extension. When a visitor opens or explicitly retries a playlist, the website requests its cached tracks. An already-open playlist stays as displayed until reopened or retried; playback is preserved. Website card names and covers continue to come from the configured playlist JSON. KV propagation, network outages and Spotify rate limits can delay visibility of updates.
 
 ## Authentication and authorization
 

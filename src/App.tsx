@@ -58,6 +58,15 @@ function getInitialTimeSlots(): TimeSlot[] {
   }));
 }
 
+type PlaylistManifestEntry = {
+  id: string;
+  trackCount?: number;
+  durationSec?: number;
+};
+
+const playlistDurationLabel = (seconds: number) =>
+  `${Math.floor(seconds / 3600)}H ${Math.floor((seconds % 3600) / 60)}M`;
+
 /** Ensure only one playlist is marked isNowPlaying (matches activePlaylistId). */
 function withExclusiveNowPlaying(slots: TimeSlot[], activeId: string): TimeSlot[] {
   let changed = false;
@@ -246,6 +255,7 @@ export default function App() {
   const pendingRestoreRef = useRef<PersistedPlaybackState | null>(persistedPlayback);
   const isLocalPlaybackActiveRef = useRef(false);
   const heroSectionRef = useRef<HTMLDivElement | null>(null);
+  const previousTrackIdentityRef = useRef(currentTrack.spotifyId || currentTrack.id);
   const [showBottomPlayer, setShowBottomPlayer] = useState(false);
   const [spotifyPlayerReady, setSpotifyPlayerReady] = useState(false);
 
@@ -328,11 +338,33 @@ export default function App() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const trackIdentity = currentTrack.spotifyId || currentTrack.id;
+    if (trackIdentity === previousTrackIdentityRef.current) return;
+
+    previousTrackIdentityRef.current = trackIdentity;
+    heroSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [currentTrack.id, currentTrack.spotifyId]);
+
   // Load playlists from JSON
   useEffect(() => {
-    fetch('/music/playlists.json')
-      .then((res) => res.json())
-      .then((data) => {
+    let cancelled = false;
+    Promise.all([
+      fetch('/music/playlists.json').then((res) => {
+        if (!res.ok) throw new Error(`Playlist configuration request failed (${res.status})`);
+        return res.json();
+      }),
+      fetch('/api/playlists/manifest')
+        .then((res) => res.ok ? res.json() : { playlists: [] })
+        .catch(() => ({ playlists: [] })),
+    ])
+      .then(([data, manifest]) => {
+        if (cancelled) return;
+        const published = new Map<string, PlaylistManifestEntry>(
+          (Array.isArray(manifest?.playlists) ? manifest.playlists : [])
+            .filter((entry: PlaylistManifestEntry) => entry && typeof entry.id === 'string')
+            .map((entry: PlaylistManifestEntry) => [entry.id, entry]),
+        );
         const langData = data[language === 'vi' ? 'vn' : 'us'] || data['us'];
         setTimeSlots((prev) => {
           const merged = prev.map((slot) => {
@@ -346,6 +378,13 @@ export default function App() {
             if (jsonPlaylists && Array.isArray(jsonPlaylists)) {
               const newPlaylists = jsonPlaylists.map((jsonPl, index) => {
                 const existingPl = slot.playlists.find((p) => p.spotifyId === jsonPl.id) || slot.playlists[index];
+                const summary = published.get(jsonPl.id);
+                const trackCount = typeof summary?.trackCount === 'number'
+                  ? summary.trackCount
+                  : existingPl?.spotifyId === jsonPl.id ? existingPl.trackCount : 0;
+                const duration = typeof summary?.durationSec === 'number'
+                  ? playlistDurationLabel(summary.durationSec)
+                  : existingPl?.spotifyId === jsonPl.id ? existingPl.duration : '0H 0M';
                 
                 return {
                   id: existingPl?.id || `pl-${jsonPl.id}`,
@@ -354,8 +393,8 @@ export default function App() {
                   slotId: slot.id,
                   slotName: existingPl?.slotName || slot.timeRange,
                   description: existingPl?.description || 'Tuyển chọn từ Spotify.',
-                  trackCount: existingPl?.trackCount || 0,
-                  duration: existingPl?.duration || '1H 30M',
+                  trackCount,
+                  duration,
                   icon: existingPl?.icon || 'fa-music',
                   accentColor: existingPl?.accentColor || slot.accentColor,
                   coverUrl: jsonPl.coverUrl || existingPl?.coverUrl || existingPl?.tracks.find((track) => track.coverUrl)?.coverUrl,
@@ -372,6 +411,7 @@ export default function App() {
         });
       })
       .catch((err) => console.error('Failed to load playlists.json:', err));
+    return () => { cancelled = true; };
   }, [language]);
 
   // Spotify Chooser Modal state

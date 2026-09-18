@@ -114,8 +114,8 @@ export const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
                   if (playlist.tracks.length > 0) {
                     onPlayTrack(playlist.tracks[0], playlist);
                   }
-                  onClose();
                 }}
+                type="button"
                 className="px-4 py-2 bg-[#FEBC11] hover:bg-yellow-400 text-[#0D0D0E] text-xs font-black uppercase tracking-wider border-2 border-black shadow-brutal flex items-center gap-2 cursor-pointer"
               >
                 <i className="fa-solid fa-play"></i>
